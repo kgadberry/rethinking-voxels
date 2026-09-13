@@ -1,4 +1,4 @@
-#version 430 compatibility
+#version 130
 
 #define VERTEX_SHADER
 #define NETHER

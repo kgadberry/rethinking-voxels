@@ -1,3 +1,3 @@
 #version 430 compatibility
-
-#include "/program/prepare1_vsh.glsl"
+#define VERTEX_SHADER
+#include "/program/prepare1.glsl"

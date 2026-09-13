@@ -1,12 +1,16 @@
-// Tweak to prevent the animation of lava causing brightness pulsing
-vec3 avgColor = vec3(0.0);
-ivec2 itexCoordC = ivec2(midCoord * atlasSize + 0.0001);
-for (int x = -8; x < 8; x += 2) {
-    for (int y = -8; y < 8; y += 2) {
-        avgColor += texelFetch(gtexture, itexCoordC + ivec2(x, y), 0).rgb;
+#ifndef IPBR_COMPATIBILITY_MODE
+    // Tweak to prevent the animation of lava causing brightness pulsing
+    vec3 avgColor = vec3(0.0);
+    ivec2 itexCoordC = ivec2(midCoord * atlasSize + 0.0001);
+    for (int x = -8; x < 8; x += 2) {
+        for (int y = -8; y < 8; y += 2) {
+            avgColor += texelFetch(tex, itexCoordC + ivec2(x, y), 0).rgb;
+        }
     }
-}
-color.rgb /= max(GetLuminance(avgColor) * 0.0390625, 0.001);
+    color.rgb /= max(GetLuminance(avgColor) * 0.0390625, 0.001);
+#else
+    color.rgb *= 0.86;
+#endif
 
 #ifdef NETHER
     vec3 worldPos = playerPos + cameraPosition;
@@ -21,9 +25,9 @@ color.rgb /= max(GetLuminance(avgColor) * 0.0390625, 0.001);
 
 noDirectionalShading = true;
 lmCoordM = vec2(0.0);
-emission = GetLuminance(color.rgb) * 5.5;
+emission = GetLuminance(color.rgb) * 6.5;
 
-maRecolor = vec3(clamp(pow2(pow2(pow2(smoothstep1(emission * 0.35)))), 0.12, 0.4) * 1.3) * vec3(1.0, vec2(0.7));
+maRecolor = vec3(clamp(pow2(pow2(pow2(smoothstep1(emission * 0.28)))), 0.12, 0.4) * 1.3) * vec3(1.0, vec2(0.7));
 
 #if RAIN_PUDDLES >= 1
     noPuddles = 1.0;

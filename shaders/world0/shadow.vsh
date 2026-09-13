@@ -1,3 +1,7 @@
-#version 430 compatibility 
+#version 430 compatibility
 
-#include "/program/shadow_vsh.glsl"
+#define VERTEX_SHADER
+#define OVERWORLD
+#define SHADOW
+
+#include "/program/shadow.glsl"

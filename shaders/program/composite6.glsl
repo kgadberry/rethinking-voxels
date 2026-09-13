@@ -1,6 +1,6 @@
-////////////////////////////////////////
-// Complementary Reimagined by EminGT //
-////////////////////////////////////////
+/////////////////////////////////////
+// Complementary Shaders by EminGT //
+/////////////////////////////////////
 
 //Common//
 #include "/lib/common.glsl"
@@ -10,55 +10,41 @@
 
 noperspective in vec2 texCoord;
 
-//Uniforms//
-uniform float viewWidth, viewHeight;
-uniform float far, near;
-
-uniform vec3 cameraPosition, previousCameraPosition;
-
-uniform mat4 gbufferPreviousProjection, gbufferProjectionInverse;
-uniform mat4 gbufferPreviousModelView, gbufferModelViewInverse;
-
-uniform sampler2D colortex3;
-uniform sampler2D colortex2;
-uniform sampler2D colortex1;
-uniform sampler2D depthtex1;
-
 //Pipeline Constants//
 #include "/lib/pipelineSettings.glsl"
 
 const bool colortex3MipmapEnabled = true;
 
 //Common Variables//
+vec2 view = vec2(viewWidth, viewHeight);
 
 //Common Functions//
 float GetLinearDepth(float depth) {
     return (2.0 * near) / (far + near - depth * (far - near));
 }
-//#define ACCUM
+
 //Includes//
 #ifdef TAA
-	#include "/lib/antialiasing/taa.glsl"
+    #include "/lib/antialiasing/taa.glsl"
 #endif
 
 //Program//
 void main() {
     vec3 color = texelFetch(colortex3, texelCoord, 0).rgb;
+
     vec3 temp = vec3(0.0);
-    float depth = texelFetch(depthtex1, texelCoord, 0).r;
+    float z1 = 0.0;
+
+    z1 = texelFetch(depthtex1, texelCoord, 0).r;
 
     #ifdef TAA
-        DoTAA(color, temp, depth);
+        DoTAA(color, temp, z1);
     #endif
 
-    /*DRAWBUFFERS:32*/
-	gl_FragData[0] = vec4(color, 1.0);
-    gl_FragData[1] = vec4(temp, 1.0 - depth);
-    
-	#ifdef TEMPORAL_FILTER
-        /*DRAWBUFFERS:326*/
-        gl_FragData[2] = vec4(depth, 0.0, 0.0, 1.0);
-	#endif
+    /* DRAWBUFFERS:321 */
+    gl_FragData[0] = vec4(color, 1.0);
+    gl_FragData[1] = vec4(temp, 1.0);
+    gl_FragData[2] = vec4(z1, 1.0, 1.0, 1.0);
 }
 
 #endif
@@ -67,8 +53,6 @@ void main() {
 #ifdef VERTEX_SHADER
 
 noperspective out vec2 texCoord;
-
-//Uniforms//
 
 //Attributes//
 
@@ -80,9 +64,9 @@ noperspective out vec2 texCoord;
 
 //Program//
 void main() {
-	gl_Position = ftransform();
+    gl_Position = ftransform();
 
-	texCoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
+    texCoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
 }
 
 #endif

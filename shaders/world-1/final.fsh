@@ -5,4 +5,3 @@
 #define FINAL
 
 #include "/program/final.glsl"
-

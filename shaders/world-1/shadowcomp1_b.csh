@@ -1,3 +1,5 @@
 #version 430
 
-#include "/program/shadowcomp_find_lights_from_tris.glsl"
+#define NETHER
+#define CSH_B
+#include "/program/shadowcomp1.glsl"

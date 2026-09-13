@@ -15,8 +15,10 @@ if (entityId < 50064) {
             } else {
                 if (entityId == 50008) { // Item Frame, Glow Item Frame
                     noSmoothLighting = true;
-                } else /*if (entityId == 50012)*/ { //
-                
+                } else /*if (entityId == 50012)*/ { // Iron Golem
+                    #include "/lib/materials/specificMaterials/terrain/ironBlock.glsl"
+
+                    smoothnessD *= 0.4;
                 }
             }
         } else {
@@ -27,18 +29,18 @@ if (entityId < 50064) {
                             noiseFactor = 0.5;
                         #endif
 
-                        if (CheckForColor(texelFetch(gtexture, ivec2(0, 0), 0).rgb, vec3(23, 46, 92))) {
+                        if (CheckForColor(texelFetch(tex, ivec2(0, 0), 0).rgb, vec3(23, 46, 92))) {
                             for (int i = 63; i >= 56; i--) {
-                                vec3 dif = color.rgb - texelFetch(gtexture, ivec2(i, 0), 0).rgb;
+                                vec3 dif = color.rgb - texelFetch(tex, ivec2(i, 0), 0).rgb;
                                 if (dif == clamp(dif, vec3(-0.001), vec3(0.001))) {
-                                    emission = 2.0 * texelFetch(gtexture, ivec2(i, 1), 0).r;
+                                    emission = 2.0 * texelFetch(tex, ivec2(i, 1), 0).r;
                                 }
                             }
                         }
                     }
                 } else /*if (entityId == 50020)*/ { // Blaze
                     lmCoordM = vec2(0.9, 0.0);
-                    emission = min(color.r, 0.7) * 0.5;
+                    emission = min(color.r, 0.7) * 1.4;
 
                     float dotColor = dot(color.rgb, color.rgb);
                     if (abs(dotColor - 1.5) > 1.4) {
@@ -47,12 +49,12 @@ if (entityId < 50064) {
                 }
             } else {
                 if (entityId == 50024) { // Creeper
-                    emission = max0(color.b - color.g - color.r) * 5.0;
+                    emission = max0(color.b - color.g - color.r) * 10.0;
                 } else /*if (entityId == 50028)*/ { // Drowned
                     if (atlasSize.x < 900) {
                         if (CheckForColor(color.rgb, vec3(143, 241, 215)) ||
                             CheckForColor(color.rgb, vec3( 49, 173, 183)) ||
-                            CheckForColor(color.rgb, vec3(101, 224, 221))) emission = 3.0;
+                            CheckForColor(color.rgb, vec3(101, 224, 221))) emission = 2.5;
                     }
                 }
             }
@@ -60,17 +62,17 @@ if (entityId < 50064) {
     } else {
         if (entityId < 50048) {
             if (entityId < 50040) {
-                if (entityId == 50032) { // Guardian        
+                if (entityId == 50032) { // Guardian
                     vec3 absDif = abs(vec3(color.r - color.g, color.g - color.b, color.r - color.b));
                     float maxDif = max(absDif.r, max(absDif.g, absDif.b));
-                    if (maxDif < 0.1 && color.b > 0.5) {
-                        emission = pow2(pow2(color.b)) * 7.0;
+                    if (maxDif < 0.1 && color.b > 0.5 && color.b < 0.88) {
+                        emission = pow2(pow1_5(color.b)) * 5.0;
                         color.rgb *= color.rgb;
                     }
                 } else /*if (entityId == 50036)*/ { // Elder Guardian
                     if (CheckForColor(color.rgb, vec3(203, 177, 165)) ||
                         CheckForColor(color.rgb, vec3(214, 155, 126))) {
-                        emission = pow2(pow2(color.b)) * 16.0;
+                        emission = pow2(pow1_5(color.b)) * 10.0;
                         color.r *= 1.2;
                     }
                 }
@@ -90,14 +92,14 @@ if (entityId < 50064) {
                 if (entityId == 50048) { // Glow Squid
                     lmCoordM.x = 0.0;
                     float dotColor = dot(color.rgb, color.rgb);
-                    emission = pow2(pow2(min(dotColor * 0.65, 1.5))) + 0.35;
+                    emission = pow2(pow2(min(dotColor * 0.65, 1.5))) + 0.45;
                 } else /*if (entityId == 50052)*/ { // Magma Cube
-                    emission = color.g * 5.0;
+                    emission = color.g * 6.0;
                 }
             } else {
                 if (entityId == 50056) { // Stray
                     if (CheckForColor(color.rgb, vec3(230, 242, 246)) && texCoord.y > 0.35)
-                        emission = 3.5;
+                        emission = 2.5;
                 } else /*if (entityId == 50060)*/ { // Vex
                     lmCoordM = vec2(0.0);
                     emission = pow2(pow2(color.r)) * 3.5 + 0.5;
@@ -111,19 +113,18 @@ if (entityId < 50064) {
         if (entityId < 50080) {
             if (entityId < 50072) {
                 if (entityId == 50064) { // Witch
-                    emission = 3.0 * color.g * color.g * float(color.g * 1.5 > color.b + color.r);
+                    emission = 2.0 * color.g * float(color.g * 1.5 > color.b + color.r);
                 } else /*if (entityId == 50068)*/ { // Wither, Wither Skull
                     lmCoordM.x = 0.9;
                     emission = 3.0 * float(dot(color.rgb, color.rgb) > 1.0);
                 }
             } else {
                 if (entityId == 50072) { // Experience Orb
-                    emission = 6.5;
+                    emission = 7.5;
 
                     color.rgb *= color.rgb;
-                } else /*if (entityId == 50076)*/ { // Boat
-                    //playerPos.y += 0.18; // to avoid water shadow
-                    playerPos.y += 0.38; // to also avoid the black inner shadow bug
+                } else /*if (entityId == 50076)*/ { // Boats
+                    playerPos.y += 0.38; // consistentBOAT2176: to avoid water shadow and the black inner shadow bug
                 }
             }
         } else {
@@ -135,42 +136,75 @@ if (entityId < 50064) {
                     } else {
                         lmCoordM.x = 0.8;
                     }
-                } else /*if (entityId == 50084)*/ { //
-
+                } else /*if (entityId == 50084)*/ { // Slime, Chicken
+                    //only code is in Vertex Shader for now
                 }
             } else {
-                if (entityId == 50088) { // 
-                
-                } else /*if (entityId == 50092)*/ { //
-
+                if (entityId == 50088) { // Entity Flame (Iris Feature)
+                    emission = 1.3;
+                } else /*if (entityId == 50092)*/ { // Trident Entity
+                    #ifdef IS_IRIS
+                        // Only on Iris, because otherwise it would be inconsistent with the Trident item
+                        #include "/lib/materials/specificMaterials/others/trident.glsl"
+                    #endif
                 }
             }
         }
     } else {
         if (entityId < 50112) {
             if (entityId < 50104) {
-                if (entityId == 50096) { // 
-                
-                } else /*if (entityId == 50100)*/ { //
+                if (entityId == 50096) { // Minecart++
+                    if (atlasSize.x < 900 && color.r * color.g * color.b + color.b > 0.3) {
+                        #include "/lib/materials/specificMaterials/terrain/ironBlock.glsl"
 
+                        smoothnessD *= 0.6;
+                    }
+                } else /*if (entityId == 50100)*/ { // Bogged
+                    if (CheckForColor(color.rgb, vec3(239, 254, 194)))
+                        emission = 2.5;
                 }
             } else {
-                if (entityId == 50104) { // 
-                
-                } else /*if (entityId == 50108)*/ { //
-
+                if (entityId == 50104) { // Piglin++, Hoglin+
+                    if (atlasSize.x < 900) {
+                        if (CheckForColor(color.rgb, vec3(255)) || CheckForColor(color.rgb, vec3(255, 242, 246))) {
+                            vec2 tSize = textureSize(tex, 0);
+                            vec4 checkRightmostColor = texelFetch(tex, ivec2(texCoord * tSize) + ivec2(1, 0), 0);
+                            if (
+                                CheckForColor(checkRightmostColor.rgb, vec3(201, 130, 101)) ||
+                                CheckForColor(checkRightmostColor.rgb, vec3(241, 158, 152)) ||
+                                CheckForColor(checkRightmostColor.rgb, vec3(223, 127, 119)) ||
+                                CheckForColor(checkRightmostColor.rgb, vec3(241, 158, 152)) ||
+                                CheckForColor(checkRightmostColor.rgb, vec3(165, 99, 80)) ||
+                                CheckForColor(checkRightmostColor.rgb, vec3(213, 149, 122)) ||
+                                CheckForColor(checkRightmostColor.rgb, vec3(255))
+                            ) {
+                                emission = 1.0;
+                            }
+                        }
+                    }
+                } else /*if (entityId == 50108)*/ { // Creaking
+                    if (color.r > 0.7 && color.r > color.g * 1.2 && color.g > color.b * 2.0) { // Eyes
+                        lmCoordM.x = 0.5;
+                        emission = 5.0 * color.g;
+                        color.rgb *= color.rgb;
+                    }
                 }
             }
         } else {
             if (entityId < 50120) {
-                if (entityId == 50112) { // 
-                
+                if (entityId == 50112) { // Name Tag
+                    noDirectionalShading = true;
+                    color.rgb *= 1.5;
+                    if (color.a < 0.5) {
+                        color.a = 0.12;
+                        color.rgb *= 5.0;
+                    }
                 } else /*if (entityId == 50116)*/ { //
 
                 }
             } else {
-                if (entityId == 50120) { // 
-                
+                if (entityId == 50120) { //
+
                 } else /*if (entityId == 50124)*/ { //
 
                 }

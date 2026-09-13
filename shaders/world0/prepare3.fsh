@@ -1,3 +1,3 @@
 #version 430 compatibility
-
-#include "/program/prepare3_fsh.glsl"
+#define FRAGMENT_SHADER
+#include "/program/prepare3.glsl"

@@ -1,103 +1,134 @@
-#ifndef READING
-#define READING
+uniform sampler3D distanceField;
+layout(r32i) uniform restrict iimage3D occupancyVolume;
+layout(r32i) uniform restrict iimage3D voxelCols;
 
-#include "/lib/vx/SSBOs.glsl"
+#include "/lib/util/random.glsl"
 
-struct vxData {
-	vec3 lower;
-	vec3 upper;
-	vec3 midcoord;
-	vec3 lightcol;
-	ivec2 texelcoord;
-	int spritesize;
-	int mat;
-	int lightlevel;
-	int skylight;
-	bool trace;
-	bool full;
-	bool cuboid;
-	bool alphatest;
-	bool emissive;
-	bool crossmodel;
-	bool connectsides;
-	bool entity;
-};
-
-//read data from the voxel map (excluding flood fill data)
-vxData readVxMap(ivec3 coords) {
-	vxData data;
-	#ifndef ACCURATE_RT
-		uvec4 packedData = readVoxelVolume(coords, 1);
-		if (packedData.x == 0) {
-		#endif
-		data.lightcol = vec3(0); // lightcol is gl_Color.rgb for anything that isn't a light source
-		data.texelcoord = ivec2(-1);
-		data.lower = vec3(0);
-		data.upper = vec3(0);
-		data.midcoord = vec3(0.5);
-		data.mat = -1;
-		data.full = false;
-		data.cuboid = false;
-		data.alphatest = false;
-		data.trace = false;
-		data.emissive = false;
-		data.crossmodel = false;
-		data.spritesize = 0;
-		data.lightlevel = 0;
-		data.skylight = 15;
-		data.connectsides = false;
-		data.entity=false;
-		#ifndef ACCURATE_RT
-		} else {
-			data.lightcol = vec3(
-				packedData.z % 256,
-				(packedData.z >> 8) % 256,
-				(packedData.z >> 16) % 256
-			) / 255.0;
-			data.texelcoord = ivec2(
-				packedData.y % 65536,
-				packedData.y >> 16
-			);
-			data.mat = int(packedData.x % 65536);
-			uint type = packedData.z >> 24;
-			data.alphatest = (type % 2 == 1);
-			data.crossmodel = ((type >> 1) % 2 == 1);
-			data.full = ((type >> 2) % 2 == 1);
-			data.emissive = ((type >> 3) % 2 == 1);
-			data.cuboid = ((type >> 4) % 2 == 1) && !data.full;
-			data.trace = ((type >> 5) % 2 == 0);
-			data.connectsides = ((type >> 6) % 2 == 1);
-			data.entity = ((type >> 7) % 2 == 1);
-			data.spritesize = (1 << ((packedData.w >> 24) % 16));
-			data.lightlevel = int(packedData.x >> 16);
-			data.skylight = int(packedData.w >> 28) % 16;
-			if (data.cuboid) {
-				data.lower = vec3(
-					packedData.w % 16,
-					(packedData.w >> 4) % 16,
-					(packedData.w >> 8) % 16
-				) / 16.0;
-				data.upper = (vec3(
-					(packedData.w >> 12) % 16,
-					(packedData.w >> 16) % 16,
-					(packedData.w >> 20) % 16
-					) + 1) / 16.0;
-			} else {
-				data.lower = vec3(0);
-				data.upper = vec3(1);
-			}
-			if (data.crossmodel || data.entity) {
-				data.midcoord = vec3(packedData.w % 256, (packedData.w >> 8) % 256, (packedData.w >> 16) % 256) / 256.0;
-			} else {
-				data.midcoord = vec3(0.5);
-			}
-		}
-	#endif
-	return data;
+int getVoxelResolution(vec3 pos) {
+    return max(min(int(-log2(infnorm(pos/(voxelVolumeSize-2.01))))-1, VOXEL_DETAIL_AMOUNT-1), 0);
 }
 
-vxData readVxMap(vec3 vxPos) {
-	ivec3 coord = ivec3(vxPos + pointerGridSize * POINTER_VOLUME_RES / 2);
-	return readVxMap(coord);
+float getDistanceField(vec3 pos) {
+    int resolution = getVoxelResolution(pos);
+    pos = clamp((1<<resolution) * pos / voxelVolumeSize + 0.5, 0.5/voxelVolumeSize, 1-0.5/voxelVolumeSize);
+    pos.y = 0.25 * (pos.y + (frameCounter+1)%2 * 2 + resolution/4);
+    return texture(distanceField, pos)[resolution%4];
 }
-#endif
+
+vec3 distanceFieldGradient(vec3 pos) {
+    const float epsilon = 0.5/(1<<VOXEL_DETAIL_AMOUNT);
+    vec3 grad;
+    for (int k = 0; k < 3; k++) {
+        grad[k] = (getDistanceField(pos + mat3(0.5*epsilon)[k]) - getDistanceField(pos - mat3(0.5*epsilon)[k])) / epsilon;
+    }
+    return grad;
+}
+
+vec4 getColor(vec3 pos) {
+    ivec3 coords = ivec3(pos + 0.5 * voxelVolumeSize);
+    if (any(lessThan(coords, ivec3(0))) || any(greaterThanEqual(coords, voxelVolumeSize))) {
+        return vec4(0);
+    }
+    ivec2 rawCol = ivec2(
+        imageLoad(voxelCols, coords * ivec3(1, 2, 1)).r,
+        imageLoad(voxelCols, coords * ivec3(1, 2, 1) + ivec3(0, 1, 0)).r
+    );
+    vec4 col = vec4(
+        rawCol.r % (1<<13),
+        (rawCol.r >> 13) % (1<<13),
+        rawCol.g % (1<<13),
+        rawCol.g >> 13 & 0x3ff
+    );
+    col /= max(vec2(20, 4).xxxy * (rawCol.g >> 23), max(max(max(col.r, col.g), col.b), 1) * vec2(1, 4.0/20.0).xxxy);
+    col.a = 1.0 - col.a;
+    return col;
+}
+
+int getLightLevel(ivec3 coords) {
+    return imageLoad(occupancyVolume, coords).r >> 6 & 15; //FIXME not implemented
+}
+
+vec3 rayTrace(vec3 start, vec3 dir, float dither) {
+    float dirLen = infnorm(dir);
+    dir /= dirLen;
+    float w = 0.001 + dither * getDistanceField(start + 0.001 * dir);
+    for (int k = 0; k < RT_STEPS; k++) {
+        float thisdist = getDistanceField(start + w * dir);
+        if (abs(thisdist) < 0.0001) {
+            break;
+        }
+        w += thisdist;
+        if (w > dirLen) break;
+    }
+    return start + min(w, dirLen) * dir;
+}
+vec4 coneTrace(vec3 start, vec3 dir, float angle, float dither) {
+    float angle0 = angle;
+    float dirLen = infnorm(dir);
+    dir /= dirLen;
+    float w = 0.001 + dither * getDistanceField(start + 0.001 * dir);
+    vec4 color = vec4(0.0);
+    int k;
+    for (k = 0; k < RT_STEPS; k++) {
+        vec3 thisPos = start + w * dir;
+        float thisdist = getDistanceField(thisPos);
+
+        #ifdef DIRECTION_UPDATING_CONETRACE
+            if (thisdist < angle * w) {
+                vec3 dfGrad = distanceFieldGradient(thisPos);
+                dfGrad = normalize(dfGrad - dot(dir, dfGrad) * dir);
+                if (!any(isnan(dfGrad))) {
+                    float offsetLen = 0.5 * max(0.0, angle * w - thisdist);
+                    dir = normalize(dir + offsetLen/w * dfGrad);
+                    thisPos = start + w * dir;
+                    thisdist += offsetLen;
+                }
+                angle = min(angle, thisdist / w);
+            }
+        #else
+            angle = min(angle, thisdist / w);
+        #endif
+        #ifdef TRANSLUCENT_LIGHT_TINT
+        if (thisdist < 0.75) {
+            ivec3 coords = ivec3(thisPos + 1000) - 1000 + voxelVolumeSize/2;
+            if ((imageLoad(occupancyVolume, coords).r >> 8 & 1) == 1) {
+                vec4 localCol = getColor(thisPos);
+                color += vec4(localCol.rgb, 1.0) * max(0.0, 1.2 * min(2 * localCol.a, 2 - 2 * localCol.a) - 0.2);
+            }
+        }
+        #endif
+        w += thisdist;
+        if (angle < 0.01 * angle0 || w > dirLen) break;
+    }
+    return vec4(
+        angle > 0.01 * angle0 ?
+        mix(vec3(1.0), color.rgb / max(color.a, 0.0001), min(1.0, color.a * 2)) :
+        start + min(w, dirLen) * dir,
+        max(0, float(w > dirLen * 0.97) * (angle/angle0 - 0.01) / 0.99));
+}
+
+vec4 voxelTrace(vec3 start, vec3 dir, out vec3 normal, int hitMask) {
+    dir += 0.000001 * vec3(equal(dir, vec3(0)));
+    vec3 stp = 1.0 / abs(dir);
+    vec3 dirsgn = sign(dir);
+    vec3 progress = (0.5 + 0.5 * dirsgn - fract(start)) * stp * dirsgn;
+    float w = 0.000001;
+    normal = vec3(0);
+    for (int k = 0; k < 2000; k++) {
+        vec3 thisVoxelPos = start + w * dir;
+        ivec3 thisVoxelCoord = ivec3(thisVoxelPos + 0.5 * normal * dirsgn + voxelVolumeSize/2);
+        if (any(greaterThanEqual(thisVoxelCoord, voxelVolumeSize)) || any(lessThan(thisVoxelCoord, ivec3(0)))) {
+            break;
+        }
+        int thisVoxelData = imageLoad(occupancyVolume, thisVoxelCoord).r;
+        if (w > 1 || (thisVoxelData & hitMask) != 0) {
+            normal *= -dirsgn;
+            return vec4(start + w * dir, thisVoxelData & hitMask);
+        }
+        w = min(min(progress.x, progress.y), progress.z);
+        normal = vec3(equal(progress, vec3(w)));
+        progress += normal * stp;
+    }
+    return vec4(-10000);
+}
+

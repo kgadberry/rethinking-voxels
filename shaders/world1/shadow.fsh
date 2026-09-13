@@ -1,3 +1,7 @@
 #version 430 compatibility 
 
-#include "/program/shadow_fsh.glsl"
+#define FRAGMENT_SHADER
+#define END
+#define SHADOW
+
+#include "/program/shadow.glsl"

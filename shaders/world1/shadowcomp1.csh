@@ -1,3 +1,5 @@
 #version 430
 
-#include "/program/shadowcomp_populate_tripointers_0.glsl"
+#define END
+#define CSH
+#include "/program/shadowcomp1.glsl"

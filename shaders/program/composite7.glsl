@@ -1,6 +1,6 @@
-////////////////////////////////////////
-// Complementary Reimagined by EminGT //
-////////////////////////////////////////
+/////////////////////////////////////
+// Complementary Shaders by EminGT //
+/////////////////////////////////////
 
 //Common//
 #include "/lib/common.glsl"
@@ -10,60 +10,61 @@
 
 noperspective in vec2 texCoord;
 
-//Uniforms//
-uniform int frameCounter;
-uniform float viewWidth, viewHeight;
-
-uniform sampler2D colortex3;
-
-//SSBOs//
-#include "/lib/vx/SSBOs.glsl"
-
 //Pipeline Constants//
-#ifndef TAA
-	const bool colortex3MipmapEnabled = true;
-#endif
 
 //Common Variables//
 
 //Common Functions//
+float GetLinearDepth(float depth) {
+    return (2.0 * near) / (far + near - depth * (far - near));
+}
 
 //Includes//
-#ifdef FXAA
-	#include "/lib/antialiasing/fxaa.glsl"
+#if FXAA_DEFINE == 1
+    #include "/lib/antialiasing/fxaa.glsl"
 #endif
 
-uniform vec3 cameraPosition;
-uniform vec3 previousCameraPosition;
-uniform mat4 gbufferProjectionInverse;
-uniform mat4 gbufferModelViewInverse;
-ivec2 atlasSize = ivec2(1);
-uniform sampler2D colortex15;
-
-#include "/lib/vx/raytrace.glsl"
-
 //Program//
+#include "/lib/vx/voxelReading.glsl"
+#include "/lib/vx/irradianceCache.glsl"
+
+vec3 fractCamPos = cameraPositionInt.y == -98257195 ? fract(cameraPosition) : cameraPositionFract;
+
 void main() {
-	vec3 color = texelFetch(colortex3, texelCoord, 0).rgb;
+    vec3 color = texelFetch(colortex3, texelCoord, 0).rgb;
+        
+    #if FXAA_DEFINE == 1
+        FXAA311(color);
+    #endif
+/*
+    if (texCoord.x < 0.5) {
+        color = texture(colortex10, texCoord).rgb;
+    } else if (false) {
+        vec4 dir = gbufferModelViewInverse * (gbufferProjectionInverse * vec4(texCoord * 2 - 1, 0.999, 1));
+        dir = normalize(dir * dir.w);
+        vec3 start = fractCamPos + 2 * dir.xyz;
+        vec3 normal;
+        vec3 hitPos = rayTrace(
+            start,
+            dir.xyz * 128,
+            fract(dot(
+                gl_FragCoord.xy,
+                vec2(
+                    0.5 + 0.5 * sqrt(5),
+                    pow2(0.5 + 0.5 * sqrt(5))
+                )
+            ))
+        );
+        normal = normalize(distanceFieldGradient(hitPos));
+        if (!(length(normal) > 0.5)) normal = vec3(0);
+        if (true) color =
+            getColor(hitPos.xyz - 0.1 * normal).xyz * readIrradianceCache(hitPos.xyz + normal * 0.5, normal);
+            //vec3(ivec3(getVoxelResolution(hitPos.xyz)) % ivec3(2, 4, 8)) / vec3(1, 3, 7)
+            // + 0.2 * normal + 0.2;
 
-	#ifdef FXAA
-		FXAA311(color);
-	#endif
-	/*if (length(texelCoord - vec2(viewWidth, viewHeight) / 2) < 300) {
-		vec3 dir = normalize((gbufferModelViewInverse * (gbufferProjectionInverse * vec4(gl_FragCoord.xy / vec2(viewWidth, viewHeight) * 2 - 1, 0.9998, 1))).xyz);
-		ray_hit_t rayHit = raytrace(8 * fract(0.125 * cameraPosition) + 0.1 * dir, 20 * dir, colortex15);
-		color = rayHit.rayColor.rgb;
-	}
-	if (texelCoord.y < 10) {
-		if (texelCoord.x < 10) {
-			color = vec3(numLights * 0.1);
-			if (numLights > MAX_LIGHTS) color = vec3(1, 0, 0);
-		} else
-			color.r = max(0, 1 - readLightPointer(texelCoord.x - 10));
-	}*/
-
-	/*DRAWBUFFERS:3*/
-	gl_FragData[0] = vec4(color, 1.0);
+    }*/
+    /* DRAWBUFFERS:3 */
+    gl_FragData[0] = vec4(color, 1.0);
 }
 
 #endif
@@ -72,8 +73,6 @@ void main() {
 #ifdef VERTEX_SHADER
 
 noperspective out vec2 texCoord;
-
-//Uniforms//
 
 //Attributes//
 
@@ -85,9 +84,9 @@ noperspective out vec2 texCoord;
 
 //Program//
 void main() {
-	gl_Position = ftransform();
+    gl_Position = ftransform();
 
-	texCoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
+    texCoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
 }
 
 #endif
