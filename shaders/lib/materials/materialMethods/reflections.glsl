@@ -111,7 +111,7 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
 
                         reflection.rgb = texture2DLod(colortex0, refPos.xy, lod).rgb;
                     #else
-                        reflection = texture2D(gaux2, refPos.xy);
+                        reflection = texture2D(colortex15, refPos.xy);
                         reflection.rgb = pow2(reflection.rgb + 1.0);
                     #endif
 
@@ -153,7 +153,7 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
                 screenPosR.z = texture2D(depthtex1, screenPosR.xy).x;
                 vec3 viewPosR = ScreenToView(screenPosR);
                 if (lViewPos <= 2.0 + length(viewPosR)) {
-                    reflection = texture2D(gaux2, screenPosR.xy);
+                    reflection = texture2D(colortex15, screenPosR.xy);
                     reflection.rgb = pow2(reflection.rgb + 1.0);
                 }
 

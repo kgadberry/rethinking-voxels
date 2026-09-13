@@ -140,6 +140,17 @@ void main() {
         color *= vignette;
     #endif
 
+    #if DEBUG_REFLECTION_SOURCE == 1
+        color = pow2(texture2D(colortex15, texCoordM.xy).rgb + 1.0);
+    #elif DEBUG_REFLECTION_SOURCE == 2
+        color = texture2D(colortex5, texCoordM.xy).rgb * 0.5 + 0.5;
+    #elif DEBUG_REFLECTION_SOURCE == 3
+        // Red marks geometry absent from depthtex1, which DoF and the reflection march both read
+        float dbgZ0 = texture2D(depthtex0, texCoordM.xy).r;
+        float dbgZ1 = texture2D(depthtex1, texCoordM.xy).r;
+        color = abs(dbgZ0 - dbgZ1) > 1e-5 ? vec3(1.0, 0.0, 0.0) : vec3(pow(dbgZ1, 128.0));
+    #endif
+
     /* DRAWBUFFERS:0 */
     gl_FragData[0] = vec4(color, 1.0);
 

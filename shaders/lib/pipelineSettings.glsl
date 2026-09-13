@@ -4,7 +4,7 @@ const int colortex1Format = R32F;           //previous depth
 const int colortex2Format = RGB16F;         //taa
 const int colortex3Format = RGBA8;          //(cloud/water map on deferred/gbuffer) | translucentMult & bloom & final color
 const int colortex4Format = RGBA8;          //volumetric cloud linear depth & volumetric light factor & normalM in composite
-const int colortex5Format = RGBA8_SNORM;    //normalM & scene image for water reflections
+const int colortex5Format = RGBA8_SNORM;    //normalM
 const int colortex6Format = RGBA8;          //smoothnessD & materialMask & skyLightFactor
 const int colortex7Format = RGBA16F;        //(cloud/water map on gbuffer) | temporal filter
 const int colortex8Format = RGBA16F;        //reprojected normal and depth data in prepare
@@ -14,6 +14,7 @@ const int colortex11Format= RGBA16I;        //valid light sample storage in bott
 const int colortex12Format= RGBA16F;        //block lighting
 const int colortex13Format= RGBA16F;        //raw specular lighting
 const int colortex14Format= RGBA16F;        //specular lighting
+const int colortex15Format= RGBA8_SNORM;    //scene image for water reflections
 
 const int shadowcolor2Format = RGBA16f;     //interactive water (low detail)
 */
@@ -35,6 +36,7 @@ const bool colortex11Clear = false;
 const bool colortex12Clear = false;
 const bool colortex13Clear = false;
 const bool colortex14Clear = false;
+const bool colortex15Clear = false;
 
 const bool shadowcolor2Clear = false;
 

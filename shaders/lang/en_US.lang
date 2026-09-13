@@ -898,6 +898,12 @@ value.CUSTOM_EMISSION_LIGHT_MULT.0=§cOFF
 option.PLAYER_EMISSION_LIGHT_MULT=Player Emission Light
 option.PLAYER_EMISSION_LIGHT_MULT.comment=Scales Custom Emission Light for players only, covering skin, armour and armour trims. Mobs and blocks keep the global value. Set to §cOFF§r to stop players casting light from glowing textures. §e[*]§r Applied on top of Custom Emission Light, so that option must not be §cOFF§r.
 value.PLAYER_EMISSION_LIGHT_MULT.0=§cOFF
+option.DEBUG_REFLECTION_SOURCE=Debug Reflection Source
+option.DEBUG_REFLECTION_SOURCE.comment=Diagnostic view. Replaces the screen with the buffer that water reflections read from, so corruption in it becomes visible directly. §bSource§r shows the reflection scene image, §bNormals§r shows the surface normal buffer. §bTranslucent Mask§r paints red whatever is missing from the opaque depth buffer that reflections and depth of field read. Leave §cOFF§r for normal play.
+value.DEBUG_REFLECTION_SOURCE.0=§cOFF
+value.DEBUG_REFLECTION_SOURCE.1=Source
+value.DEBUG_REFLECTION_SOURCE.2=Normals
+value.DEBUG_REFLECTION_SOURCE.3=Translucent Mask
 
 option.POM=Parallax Occlusion Mapping
 option.POM.comment=Enables 3D effect on surfaces. §c[-]§r This effect can severely impact performance. §e[*]§r RP Support option must be set to labPBR/seuspbr, and a compatible resource pack must be used.

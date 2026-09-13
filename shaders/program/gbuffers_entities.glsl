@@ -193,11 +193,20 @@ void main() {
         ColorCodeProgram(color, -1);
     #endif
 
-    /* DRAWBUFFERS:0654 */
-    gl_FragData[0] = color;
-    gl_FragData[1] = vec4(smoothnessD, materialMask, skyLightFactor, 1.0);
-    gl_FragData[2] = vec4(mat3(gbufferModelViewInverse) * normalM, 1.0);
-    gl_FragData[3] = albedo;
+    #ifdef TRANSLUCENT_ENTITY_PASS
+        // deferred1 has already repurposed colortex4 into cloud depth and composite normals by
+        // the time this pass draws, so drop the albedo write and keep the rest
+        /* DRAWBUFFERS:065 */
+        gl_FragData[0] = color;
+        gl_FragData[1] = vec4(smoothnessD, materialMask, skyLightFactor, 1.0);
+        gl_FragData[2] = vec4(mat3(gbufferModelViewInverse) * normalM, 1.0);
+    #else
+        /* DRAWBUFFERS:0654 */
+        gl_FragData[0] = color;
+        gl_FragData[1] = vec4(smoothnessD, materialMask, skyLightFactor, 1.0);
+        gl_FragData[2] = vec4(mat3(gbufferModelViewInverse) * normalM, 1.0);
+        gl_FragData[3] = albedo;
+    #endif
 }
 
 #endif

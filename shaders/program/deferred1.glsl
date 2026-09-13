@@ -491,13 +491,13 @@ void main() {
         if (clouds.a < 0.5) DoDarkOutline(color, skyFade, z0, dither);
     #endif
 
-    /*RENDERTARGETS:0,5,4,8*/
+    /*RENDERTARGETS:0,15,4,8*/
     gl_FragData[0] = vec4(color, 1.0);
     gl_FragData[1] = vec4(waterRefColor, 1.0 - skyFade);
     gl_FragData[2] = vec4(cloudLinearDepth, texture5 * 0.5 + 0.5);
     gl_FragData[3] = vec4(smoothnessD, materialMaskInt / 255.0, 0, 1);
     #ifdef TEMPORAL_FILTER
-        /*RENDERTARGETS:0,5,4,8,7*/
+        /*RENDERTARGETS:0,15,4,8,7*/
         gl_FragData[4] = refToWrite;
     #endif
 }
