@@ -291,7 +291,9 @@ void main() {
 
     cnormal = normalize(cnormal);
 
-    bool emissive = isEmissive(localMat) || lmCoordV[0].x > 0.3;
+    // ignoreMat() is upstream's player-body exclusion, defined but never wired up; without it
+    // bare skin emitted via the lightmap route, tinted by its own average colour.
+    bool emissive = !ignoreMat(localMat) && (isEmissive(localMat) || lmCoordV[0].x > 0.3);
 
     vec3[3] vxPos;
 
@@ -331,27 +333,48 @@ void main() {
             lightLevel = getLightLevel(localMat);
             col = vec4(getLightCol(localMat), 1);
         }
-        #if RP_MODE >= 2
+        #if RP_MODE >= 2 && CUSTOM_EMISSION_LIGHT_MULT > 0
             #if RP_MODE == 2
                 #define EMISSION_CHANNEL b
             #else
                 #define EMISSION_CHANNEL a
             #endif
             else {
-                for (int k = 0; k < 9; k++) {
-                    vec2 offset = (vec2(k%3, k/3) + 0.5)/3.0;
-                    vec4 s = textureLod(specular, mix(minTexCoord, maxTexCoord, offset), 0);
-                    if (
-                        #if RP_MODE == 3
-                            s.EMISSION_CHANNEL < 0.999 &&
-                        #endif
-                        s.EMISSION_CHANNEL > 0.2) {
-                        emissive = true;
-                        lightLevel = max(lightLevel, int(31.9 * s.EMISSION_CHANNEL));
+                // entityId stays 50016 across the player's armour and trim layers, so this
+                // covers skin, armour and trims while leaving armoured mobs on the global value
+                int emLightMult = CUSTOM_EMISSION_LIGHT_MULT;
+                if (entityId == 50016) {
+                    emLightMult = emLightMult * PLAYER_EMISSION_LIGHT_MULT / 100;
+                }
+                if (emLightMult > 0) {
+                    for (int k = 0; k < 9; k++) {
+                        vec2 offset = (vec2(k%3, k/3) + 0.5)/3.0;
+                        vec4 s = textureLod(specular, mix(minTexCoord, maxTexCoord, offset), 0);
+                        if (
+                            #if RP_MODE == 3
+                                s.EMISSION_CHANNEL < 0.999 &&
+                            #endif
+                            s.EMISSION_CHANNEL > 0.2) {
+                            emissive = true;
+                            // clamped to 1..31: the packed field is 5 bits, and a 0 here
+                            // would fall through to the ambient-blocklight fallback below
+                            lightLevel = max(lightLevel, clamp(
+                                int(0.319 * emLightMult * s.EMISSION_CHANNEL), 1, 31));
+                        }
                     }
                 }
             }
         #endif
+        // An entity in blocklight 15, or an emissive layer drawn with the lightmap disabled,
+        // reaches here with lmCoordV.x forced to 0.8 by the vertex stage, so the test at the
+        // top already flagged it emissive and the specular branch above never ran. Scale that
+        // second route by the same knobs, and unflag it at 0 before it claims a light slot.
+        int ambLightMult = 100;
+        if (renderStage == MC_RENDER_STAGE_ENTITIES) {
+            ambLightMult = CUSTOM_EMISSION_LIGHT_MULT;
+            if (entityId == 50016) ambLightMult = ambLightMult * PLAYER_EMISSION_LIGHT_MULT / 100;
+        }
+        if (emissive && lightLevel == 0 && ambLightMult == 0) emissive = false;
         vec4 textureCol = textureLod(tex, 0.5 * (minTexCoord + maxTexCoord), lodLevel);
         for (int k = 0; k < 9; k++) {
             vec2 offset = (vec2(k%3, k/3) + 0.5)/3.0;
@@ -386,9 +409,13 @@ void main() {
             if (isHeldLight) emissive = false;
         #endif
 
-        int skyLight = int(3.5 * lmCoordV[0].y);
-        int writeSkyLight = ivec4(0, 1, 3, 2)[skyLight];
-        imageAtomicOr(occupancyVolume, coords, writeSkyLight << 28);
+        // sky access belongs to the voxel's own block; an entity merely overlaps the voxel it
+        // lands in, so OR-ing its sky value there leaks sky colour onto unlit block faces
+        if (renderStage != MC_RENDER_STAGE_ENTITIES) {
+            int skyLight = int(3.5 * lmCoordV[0].y);
+            int writeSkyLight = ivec4(0, 1, 3, 2)[skyLight];
+            imageAtomicOr(occupancyVolume, coords, writeSkyLight << 28);
+        }
         bool shouldVoxelize = true;
         if (
             #ifndef PLAYER_VOXELIZATION
@@ -498,13 +525,19 @@ void main() {
             atomicAdd(globalLightHashMap[hash*4+2], packedCol2.x);
             atomicAdd(globalLightHashMap[hash*4+3], packedCol2.y);
             if ((imageAtomicOr(occupancyVolume, coords, 1<<16) >> 16 & 1) == 0) {
-                int lightLevel = getLightLevel(localMat);
+                // lightLevel is already set above: from the material for hardcoded
+                // emitters, from the specular emission channel for textured ones.
+                // Redeclaring it here shadowed the textured value and pinned every
+                // texture-driven emitter to the fallback below.
                 #if HELD_LIGHTING_MODE == 1
                     if (isHeldLight) {
                         lightLevel /= 2;
                     }
                 #endif
-                if (lightLevel == 0) lightLevel = max(10, int(31 * lmCoordV[0].x));
+                if (lightLevel == 0) {
+                    // clamped to the 5-bit field: >31 would carry into the material bits
+                    lightLevel = clamp(max(10, int(31 * lmCoordV[0].x)) * ambLightMult / 100, 1, 31);
+                }
                 imageAtomicOr(occupancyVolume, coords, (lightLevel + (localMat/4%32 << 5) << 17));
                 if (
                     renderStage != MC_RENDER_STAGE_TERRAIN_SOLID &&

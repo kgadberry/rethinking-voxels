@@ -892,6 +892,12 @@ option.NORMAL_MAP_STRENGTH.comment=Adjusts the strength of bumpy details on surf
 
 option.CUSTOM_EMISSION_INTENSITY=Custom Emission Intensity
 option.CUSTOM_EMISSION_INTENSITY.comment=Adjusts the intensity of glowing surfaces. §e[*]§r RP Support option must be set to labPBR/seuspbr, and a compatible resource pack must be used.
+option.CUSTOM_EMISSION_LIGHT_MULT=Custom Emission Light
+option.CUSTOM_EMISSION_LIGHT_MULT.comment=Scales the brightness and range of the light that glowing entity surfaces cast onto the world, both from resource pack emission maps and from emissive overlay layers such as glowing eyes. Set to §cOFF§r to make them glow without lighting their surroundings. Does not change how bright the surface itself looks - use Custom Emission Intensity for that. §e[*]§r Emission maps also need RP Support set to labPBR/seuspbr.
+value.CUSTOM_EMISSION_LIGHT_MULT.0=§cOFF
+option.PLAYER_EMISSION_LIGHT_MULT=Player Emission Light
+option.PLAYER_EMISSION_LIGHT_MULT.comment=Scales Custom Emission Light for players only, covering skin, armour and armour trims. Mobs and blocks keep the global value. Set to §cOFF§r to stop players casting light from glowing textures. §e[*]§r Applied on top of Custom Emission Light, so that option must not be §cOFF§r.
+value.PLAYER_EMISSION_LIGHT_MULT.0=§cOFF
 
 option.POM=Parallax Occlusion Mapping
 option.POM.comment=Enables 3D effect on surfaces. §c[-]§r This effect can severely impact performance. §e[*]§r RP Support option must be set to labPBR/seuspbr, and a compatible resource pack must be used.
