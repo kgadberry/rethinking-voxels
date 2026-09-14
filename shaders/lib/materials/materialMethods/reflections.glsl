@@ -61,13 +61,16 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
             #endif
             //vector = normalize(vector - 0.5 * (1.0 - smoothness) * (1.0 - fresnel) * normalMR); // reflection anisotropy test
             //vector = normalize(vector - 0.075 * dither * (1.0 - pow2(pow2(fresnel))) * normalMR);
-            vector *= 0.5;
-            vec3 viewPosRT = viewPos + vector;
+            vector *= 0.35;
             vec3 tvector = vector;
+            vec3 viewPosRT = start + tvector;
 
             int sr = 0;
             float dist = 0.0;
             vec3 rfragpos = vec3(0.0);
+            // Doubling steps from the first sample skip over entity-sized targets, and the err
+            // tolerance they grow false-hits the bed in shallow water. Hold them short up close.
+            float nearRange = 3.0 * clamp(1.0 - lViewPos * 0.03125, 0.0, 1.0);
             for (int i = 0; i < 30; i++) {
                 refPos = nvec3(gbufferProjection * vec4(viewPosRT, 1.0)) * 0.5 + 0.5;
                 if (abs(refPos.x - 0.5) > rEdge.x || abs(refPos.y - 0.5) > rEdge.y) break;
@@ -84,7 +87,7 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
                     tvector -= vector;
                     vector *= 0.1;
                 }
-                vector *= 2.0;
+                if (sr > 0 || length(tvector) > nearRange) vector *= 2.0;
                 tvector += vector * (0.95 + 0.1 * dither);
                 viewPosRT = start + tvector;
             }
