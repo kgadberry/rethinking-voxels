@@ -65,6 +65,9 @@ float shadowTime = shadowTimeVar2 * shadowTimeVar2;
 #include "/lib/util/dither.glsl"
 #include "/lib/util/spaceConversion.glsl"
 #include "/lib/lighting/mainLighting.glsl"
+#ifdef GBUFFERS_ENTITIES_TRANSLUCENT
+    #include "/lib/atmospherics/fog/mainFog.glsl"
+#endif
 
 #if defined GENERATED_NORMALS || defined COATED_TEXTURES
     #include "/lib/util/miplevel.glsl"
@@ -187,19 +190,35 @@ void main() {
                 skyLightFactor = dot(shadowMult, shadowMult) / 3.0;
             #endif
         #endif
+
+        #ifdef GBUFFERS_ENTITIES_TRANSLUCENT
+            // deferred1 is where opaque geometry gets fogged, and it has already run by now
+            float dither = Bayer64(gl_FragCoord.xy);
+            #ifdef TAA
+                dither = fract(dither + goldenRatio * mod(float(frameCounter), 3600.0));
+            #endif
+            float VdotU = dot(nViewPos, upVec);
+            float VdotS = dot(nViewPos, sunVec);
+            float sky = 0.0;
+            DoFog(color.rgb, sky, lViewPos, playerPos, VdotU, VdotS, dither);
+            color.a *= 1.0 - sky;
+        #endif
     }
 
     #ifdef COLOR_CODED_PROGRAMS
         ColorCodeProgram(color, -1);
     #endif
 
-    #ifdef TRANSLUCENT_ENTITY_PASS
+    #ifdef GBUFFERS_ENTITIES_TRANSLUCENT
         // deferred1 has already repurposed colortex4 into cloud depth and composite normals by
         // the time this pass draws, so drop the albedo write and keep the rest
-        /* DRAWBUFFERS:065 */
+        /* DRAWBUFFERS:0653 */
         gl_FragData[0] = color;
         gl_FragData[1] = vec4(smoothnessD, materialMask, skyLightFactor, 1.0);
         gl_FragData[2] = vec4(mat3(gbufferModelViewInverse) * normalM, 1.0);
+        // Blending scales this by color.a, so translucentMult lands at 1.0 - alpha and volumetric
+        // light stops accumulating behind the model
+        gl_FragData[3] = vec4(1.0);
     #else
         /* DRAWBUFFERS:0654 */
         gl_FragData[0] = color;
