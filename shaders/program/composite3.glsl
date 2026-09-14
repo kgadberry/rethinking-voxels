@@ -23,7 +23,9 @@
 #if WORLD_BLUR > 0
     #if WORLD_BLUR == 2 && WB_DOF_FOCUS >= 0
         #if WB_DOF_FOCUS == 0
-            uniform float centerDepthSmooth;
+            // Iris samples its own centerDepthSmooth before the reversed-Z fixup that pack depth
+            // reads get, so take the focus depth from the buffer the CoC is measured against
+            float centerDepthSmooth;
         #else
             float centerDepthSmooth = (far * (WB_DOF_FOCUS - near)) / (WB_DOF_FOCUS * (far - near));
         #endif
@@ -142,6 +144,10 @@ void main() {
             vec4 viewPosDH = dhProjectionInverse * (screenPosDH * 2.0 - 1.0);
             viewPosDH /= viewPosDH.w;
             lViewPos = min(lViewPos, length(viewPosDH.xyz));
+        #endif
+
+        #if WORLD_BLUR == 2 && WB_DOF_FOCUS == 0
+            centerDepthSmooth = texelFetch(depthtex1, ivec2(vec2(viewWidth, viewHeight) * 0.5), 0).r;
         #endif
 
         DoWorldBlur(color, z1, lViewPos);
