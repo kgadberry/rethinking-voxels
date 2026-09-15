@@ -190,8 +190,9 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
         reflectMult = 0.7;
     }
 
-    // Fade in over the same band the opaque patch dithers in over, so LODs never show inside loaded terrain
-    float lengthCylinder = max(length(playerPos.xz), abs(playerPos.y) * 2.0);
+    // Fade in over the same band the opaque patch dithers in over, so LODs never show inside loaded
+    // terrain. Its y term carries no factor, and doubling ours drew LOD ice over discarded LOD land.
+    float lengthCylinder = max(length(playerPos.xz), abs(playerPos.y));
     color.a *= smoothstep(far * 0.5, far * 0.7, lengthCylinder);
 
     DoLighting(color, shadowMult, playerPos, viewPos, lViewPos, geoNormal, normalM, 0.5,
