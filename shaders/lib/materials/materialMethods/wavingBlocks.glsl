@@ -59,6 +59,14 @@ void DoWave_Leaves(inout vec3 playerPos, vec3 worldPos, float waveMult) {
 }
 
 void DoWave_Water(inout vec3 playerPos, vec3 worldPos) {
+    // Voxy's LOD water cannot be displaced, so the wave dies out toward the handoff instead of
+    // stopping dead at the last vanilla section (Sodium culls those within far in xz and y)
+    #ifdef VOXY_AS_DH
+        float lodHandoff = smoothstep(far, far * 0.75, max(length(playerPos.xz), abs(playerPos.y)));
+    #else
+        float lodHandoff = 1.0;
+    #endif
+
     #ifdef INTERACTIVE_WATER
         #include "/lib/materials/specificMaterials/translucents/interactiveWaterConsts.glsl"
 
@@ -83,7 +91,7 @@ void DoWave_Water(inout vec3 playerPos, vec3 worldPos) {
                 offset += waveStrengths[k][i] * thisOffset;
             }
         }
-        playerPos.y -= offset;
+        playerPos.y -= offset * lodHandoff;
     #else
         float waterWaveTime = frameTimeCounter * 6.0 * WAVING_SPEED;
         worldPos.xz *= 14.0;
@@ -97,7 +105,7 @@ void DoWave_Water(inout vec3 playerPos, vec3 worldPos) {
             wave *= 0.1;
         #endif
 
-        playerPos.y += wave * 0.125 - 0.05;
+        playerPos.y += (wave * 0.125 - 0.05) * lodHandoff;
 
         #if defined GBUFFERS_WATER && WATER_STYLE == 1
             normal = mix(normal, tangent, wave * 0.01);
