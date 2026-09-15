@@ -122,7 +122,9 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
 
     // Texel alpha times tint alpha is what gbuffers_water starts from; the tint is the biome water colour
     float alpha = parameters.sampledColour.a * parameters.tinting.a;
-    glColor = vec4(parameters.tinting.rgb, alpha);
+    // glColor is the vertex colour, whose alpha DoLighting reads as vanilla AO - and vanilla leaves
+    // that 1.0 on fluids, so handing it the texel's 0.706 dimmed every LOD water pixel by a quarter.
+    glColor = vec4(parameters.tinting.rgb, 1.0);
     // Raw texel like gbuffers_water's tex sample; voxy bakes fluids through the vanilla FluidRenderer
     vec4 colorP = vec4(parameters.sampledColour.rgb, alpha);
     vec4 color = vec4(parameters.sampledColour.rgb * parameters.tinting.rgb, alpha);
