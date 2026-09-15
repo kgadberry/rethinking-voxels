@@ -192,6 +192,11 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
                worldGeoNormal, lmCoordM, noSmoothLighting, noDirectionalShading, noVanillaAO,
                centerShadowBias, subsurfaceMode, smoothnessG, materialMask, highlightMult, emission);
 
+    #if VOXY_DEBUG == 2 // the lit water body alone, opaque, so the reflection cannot mask it
+        fragColor = vec4(color.rgb, 1.0);
+        return;
+    #endif
+
     // Reflections
     #if WATER_REFLECT_QUALITY >= 0
         #ifdef LIGHT_COLOR_MULTS
@@ -211,6 +216,11 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
         vec4 reflection = GetReflection(normalM, viewPos.xyz, nViewPos, playerPos, lViewPos, -1.0,
                                         vxDepthTexOpaque, dither, skyLightFactor, fresnel,
                                         smoothnessG, geoNormal, color.rgb, shadowMult, highlightMult);
+
+        #if VOXY_DEBUG == 3 // the reflection alone, opaque, before fresnel weights it in
+            fragColor = vec4(reflection.rgb, 1.0);
+            return;
+        #endif
 
         color.rgb = mix(color.rgb, reflection.rgb, fresnelM);
     #endif
