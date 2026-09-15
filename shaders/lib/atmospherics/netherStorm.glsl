@@ -14,7 +14,7 @@ vec4 GetNetherStorm(vec3 color, vec3 translucentMult, vec3 nPlayerPos, vec3 play
     vec4 netherStorm = vec4(1.0, 1.0, 1.0, 0.0);
 
     #ifdef BORDER_FOG
-        float maxDist = min(renderDistance, NETHER_VIEW_LIMIT); // consistency9023HFUE85JG
+        float maxDist = min(borderFogDistance, NETHER_VIEW_LIMIT); // consistency9023HFUE85JG
     #else
         float maxDist = renderDistance;
     #endif

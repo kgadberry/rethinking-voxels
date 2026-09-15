@@ -174,6 +174,7 @@
     #define BORDER_FOG
     #define ATM_FOG_MULT 0.95 //[0.50 0.65 0.80 0.95]
     #define ATM_FOG_DISTANCE 100 //[10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100 110 120 130 140 150 160 170 180 190 200 220 240 260 280 300]
+    #define BORDER_FOG_DISTANCE 100 //[25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100 110 120 130 140 150 175 200]
     #define ATM_FOG_ALTITUDE 63 //[0 5 10 15 20 25 30 35 40 45 50 52 54 56 58 60 61 62 63 64 65 66 67 68 69 70 72 74 76 78 80 85 90 95 100 105 110 115 120 125 130 135 140 145 150 155 160 165 170 175 180 185 190 195 200 210 220 230 240 250 260 270 280 290 300]
     #define CAVE_FOG
     #define LIGHTSHAFT_BEHAVIOUR 1 //[0 1 2 3]
@@ -723,6 +724,8 @@
     #else
         float renderDistance = float(dhRenderDistance);
     #endif
+    // where the border fog reaches, as a share of the render distance (the LOD distance under voxy or DH)
+    float borderFogDistance = renderDistance * (BORDER_FOG_DISTANCE * 0.01);
 
     const float shadowMapBias = 1.0 - 25.6 / shadowDistance;
     #ifndef DREAM_TWEAKED_LIGHTING

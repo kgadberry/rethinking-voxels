@@ -78,7 +78,7 @@ void DoBSLColorSaturation(inout vec3 color) {
         float bloomStrength = BLOOM_STRENGTH + 0.2 * darknessFactor;
 
         #if defined BLOOM_FOG && defined NETHER && defined BORDER_FOG
-            float farM = min(renderDistance, NETHER_VIEW_LIMIT); // consistency9023HFUE85JG
+            float farM = min(borderFogDistance, NETHER_VIEW_LIMIT); // consistency9023HFUE85JG
             float netherBloom = lViewPos / clamp(farM, 96.0, 256.0);
             netherBloom *= netherBloom;
             netherBloom *= netherBloom;
