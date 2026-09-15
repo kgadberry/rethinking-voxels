@@ -11,6 +11,9 @@
 // pack must not take its Distant Horizons paths even when that mod is installed alongside.
 #undef DISTANT_HORIZONS
 
+// voxy.json can only request Iris's canonical sampler names
+#define gaux4 colortex7
+
 //Common//
 #include "/lib/common.glsl"
 

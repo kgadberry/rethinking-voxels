@@ -82,6 +82,11 @@ uniform float playerSize = 1.8;
     #include "/lib/atmospherics/sky.glsl"
 #endif
 
+// The sky effects below scale by the atmosphere multiplier, so it has to be declared first
+#ifdef ATM_COLOR_MULTS
+    #include "/lib/colors/colorMultipliers.glsl"
+#endif
+
 #if WATER_REFLECT_QUALITY >= 0
     #if defined SKY_EFFECT_REFLECTION && defined OVERWORLD
         #if AURORA_STYLE > 0
@@ -102,9 +107,6 @@ uniform float playerSize = 1.8;
     #include "/lib/materials/materialMethods/reflections.glsl"
 #endif
 
-#ifdef ATM_COLOR_MULTS
-    #include "/lib/colors/colorMultipliers.glsl"
-#endif
 #ifdef MOON_PHASE_INF_ATMOSPHERE
     #include "/lib/colors/moonPhaseInfluence.glsl"
 #endif
