@@ -121,7 +121,9 @@ vec4 GetVolumetricClouds(int cloudAltitude, float distanceThreshold, inout float
             #endif
             float distanceRatio = (distanceThreshold - lTracePosXZ) / distanceThreshold;
             float cloudDistanceFactor = clamp(distanceRatio, 0.0, 0.75);
-            #ifndef DISTANT_HORIZONS
+            // The LOD patch has to undefine DISTANT_HORIZONS for the uniforms, but voxyAsDh.glsl
+            // gives every other program the flag, so the patch takes its cloud tuning too.
+            #if !defined DISTANT_HORIZONS && !defined VOXY_PATCH
                 float cloudFogFactor = cloudDistanceFactor;
             #else
                 float cloudFogFactor = pow1_5(clamp(distanceRatio, 0.0, 1.0)) * 0.75;

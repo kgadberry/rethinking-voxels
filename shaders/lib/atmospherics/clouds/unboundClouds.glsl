@@ -80,7 +80,7 @@ float GetCloudNoise(vec3 tracePos, int cloudAltitude, float lTracePosXZ, float c
     }
     noise = pow2(noise / total);
 
-    #ifndef DISTANT_HORIZONS
+    #if !defined DISTANT_HORIZONS && !defined VOXY_PATCH
         #define CLOUD_BASE_ADD 0.65
         #define CLOUD_FAR_ADD 0.01
         #define CLOUD_ABOVE_ADD 0.1
@@ -191,7 +191,7 @@ vec4 GetVolumetricClouds(int cloudAltitude, float distanceThreshold, inout float
             #endif
             float distanceRatio = (distanceThreshold - lTracePosXZ) / distanceThreshold;
             float cloudDistanceFactor = clamp(distanceRatio, 0.0, 0.8) * 1.25;
-            #ifndef DISTANT_HORIZONS
+            #if !defined DISTANT_HORIZONS && !defined VOXY_PATCH
                 float cloudFogFactor = cloudDistanceFactor;
             #else
                 float cloudFogFactor = clamp(distanceRatio, 0.0, 1.0);
