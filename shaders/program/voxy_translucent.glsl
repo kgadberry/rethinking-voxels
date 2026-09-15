@@ -182,6 +182,12 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
     mat = int(parameters.customId);
     if (mat == 32000) { // Water
         #include "/lib/materials/specificMaterials/translucents/water.glsl"
+    } else if (mat == 32004) { // Ice
+        // translucentMaterials.glsl's own constants. Without them reflectMult stays zero, so the
+        // shared reflection block below gave LOD ice neither a sky reflection nor a highlight.
+        smoothnessG = pow2(color.g) * color.g;
+        highlightMult = pow2(min1(pow2(color.g) * 1.5)) * 3.5;
+        reflectMult = 0.7;
     }
 
     // Fade in over the same band the opaque patch dithers in over, so LODs never show inside loaded terrain
