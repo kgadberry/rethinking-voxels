@@ -151,11 +151,12 @@ void registerLight(ivec3 lightCoord, vec3 referencePos, float weight) {
     int thisOccupancy = imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r;
     bool isStillLight = (thisOccupancy >> 16 & 1) != 0;
     #ifdef LIGHT_CLUMPING
-        // a clumped lake voxel keeps its material bits, so the cell's representative
-        // follows from its own coord and no neighbour search is needed
-        if (!isStillLight && isLakeLightMat(thisOccupancy)) {
+        // a merged voxel keeps its level and class bits, so the cell corner holding the
+        // merged entry follows from its own coord and no neighbour search is needed
+        if (!isStillLight && lightClumpIsMember(thisOccupancy)) {
             ivec3 cellMin = lightClumpCellMin(lightCoord);
-            if ((imageLoad(occupancyVolume, cellMin + voxelVolumeSize/2).r >> 16 & 1) != 0) {
+            if (!lightClumpNearCamera(cellMin) &&
+                (imageLoad(occupancyVolume, cellMin + voxelVolumeSize/2).r >> 16 & 1) != 0) {
                 isStillLight = true;
                 lightCoord = cellMin;
             }
@@ -186,7 +187,7 @@ void registerLight(ivec3 lightCoord, vec3 referencePos, float weight) {
             int thisLightExtraData = imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r;
             vec3 subLightPos = (packedLightSubPos.y >> 16) == 0 ? vec3(0.5) : 1.0/32.0 * vec3(packedLightSubPos.x & 0xffff, packedLightSubPos.x>>16, packedLightSubPos.y & 0xffff) / (packedLightSubPos.y >> 16) - 1;
             vec3 lightCol = 1.0/32.0 * vec3(packedLightCol.x & 0xffff, packedLightCol.x>>16, packedLightCol.y & 0xffff) / (packedLightSubPos.y >> 16);
-            // scale a clumped lake light back up before it is weighed and sorted
+            // scale a merged cell back up before it is weighed and sorted
             lightCol *= lightClumpMergeScale(packedLightCol.y >> 16);
             vec3 dir = lightCoord + subLightPos - referencePos;
             float dirLen = length(dir);

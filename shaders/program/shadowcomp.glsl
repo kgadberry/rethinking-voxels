@@ -281,7 +281,7 @@ void main() {
 #endif
 
 
-// lava and magma light clumping
+// block light clumping
 #ifdef CSH_B
 #ifdef LIGHT_CLUMPING
 #if VX_VOL_SIZE == 0
@@ -307,10 +307,15 @@ layout(r32i) uniform restrict iimage3D occupancyVolume;
 const ivec3 cellsPerGroup = ivec3(8) / lightClumpCellSize;
 const int cellCountPerGroup = cellsPerGroup.x * cellsPerGroup.y * cellsPerGroup.z;
 
+// key vote sentinels: above every real key, and a corner that must be left alone
+#define CLUMP_NO_KEY 2048
+#define CLUMP_BLOCKED -1
+
 shared ivec4 cellPosSums[cellCountPerGroup];
 shared ivec3 cellColSums[cellCountPerGroup];
 shared int cellCounts[cellCountPerGroup];
-shared int cellKeys[cellCountPerGroup];
+shared int cellCornerKeys[cellCountPerGroup];
+shared int cellLowestKeys[cellCountPerGroup];
 
 void main() {
     int index = int(gl_LocalInvocationIndex);
@@ -318,28 +323,42 @@ void main() {
         cellPosSums[index] = ivec4(0);
         cellColSums[index] = ivec3(0);
         cellCounts[index] = 0;
-        cellKeys[index] = -1;
+        cellCornerKeys[index] = CLUMP_NO_KEY;
+        cellLowestKeys[index] = CLUMP_NO_KEY;
     }
     ivec3 localCoord = ivec3(gl_LocalInvocationID);
     ivec3 inCell = localCoord % lightClumpCellSize;
     ivec3 cellId = localCoord / lightClumpCellSize;
     int cellIndex = cellId.x + cellsPerGroup.x * (cellId.y + cellsPerGroup.y * cellId.z);
     ivec3 coord = ivec3(gl_GlobalInvocationID) + lightClumpAlign();
+    ivec3 cornerCoord = coord - inCell;
     int thisOccupancy = imageLoad(occupancyVolume, coord).r;
-    bool isLakeLight = (thisOccupancy >> 16 & 1) != 0 && isLakeLightMat(thisOccupancy);
+    int thisKey = lightClumpKey(thisOccupancy);
+    uint hash = posToHash(coord - voxelVolumeSize/2) % uint(1<<18);
+    bool isLight = (thisOccupancy >> 16 & 1) != 0;
+    // an entity clump has averaged its entry already and marked word 3 with 0xffff
+    bool mergeable = isLight && (thisOccupancy >> 27 & 1) == 0 &&
+        (globalLightHashMap[4 * hash + 3] >> 16) != 0xffffu;
     barrier();
     memoryBarrierShared();
-    // the min corner is the representative because a reader can derive it from any
-    // merged voxel's own coord, with no search through the cell
-    if (isLakeLight && inCell == ivec3(0)) {
-        cellKeys[cellIndex] = thisOccupancy >> 17 & 1023;
+    if (inCell == ivec3(0) && isLight) {
+        // the corner carries the merged entry, so a light already sitting there picks
+        // which kind may merge, and one that must not be touched blocks the cell
+        cellCornerKeys[cellIndex] = mergeable ? thisKey : CLUMP_BLOCKED;
+    }
+    if (mergeable) {
+        atomicMin(cellLowestKeys[cellIndex], thisKey);
     }
     barrier();
     memoryBarrierShared();
-    bool merged = isLakeLight && (thisOccupancy >> 17 & 1023) == cellKeys[cellIndex];
-    uint hash = 0;
+    int cornerKey = cellCornerKeys[cellIndex];
+    // with no light on the corner the pass promotes it, and the lowest key wins
+    bool promote = cornerKey == CLUMP_NO_KEY;
+    int targetKey = promote ? cellLowestKeys[cellIndex] : cornerKey;
+    bool cellActive = targetKey >= 0 && targetKey < CLUMP_NO_KEY &&
+        !lightClumpNearCamera(cornerCoord - voxelVolumeSize/2);
+    bool merged = mergeable && cellActive && thisKey == targetKey;
     if (merged) {
-        hash = posToHash(coord - voxelVolumeSize/2) % uint(1<<18);
         uvec2 packedLightSubPos = uvec2(
             globalLightHashMap[4 * hash],
             globalLightHashMap[4 * hash + 1]
@@ -351,7 +370,7 @@ void main() {
         ivec4 subPos = ivec4(packedLightSubPos.x & 0xffffu, packedLightSubPos.x >> 16, packedLightSubPos.y & 0xffffu, packedLightSubPos.y >> 16);
         ivec3 col = ivec3(packedLightCol.x & 0xffffu, packedLightCol.x >> 16, packedLightCol.y & 0xffffu);
         // every position is a sum over w contributions, so moving it by one voxel
-        // towards the min corner costs 32 * w
+        // towards the corner costs 32 * w
         ivec4 offset = ivec4(inCell, 0);
         for (int k = 0; k < 4; k++) {
             atomicAdd(cellPosSums[cellIndex][k], subPos[k] + 32 * offset[k] * subPos.w);
@@ -363,13 +382,30 @@ void main() {
     }
     barrier();
     memoryBarrierShared();
-    // a cell that found nothing to merge keeps its light exactly as voxelized
-    if (!merged || cellCounts[cellIndex] < 2) return;
+    // a mean position inside solid geometry gives a zero cone, so the whole cell would
+    // read as unlit: leave those lights alone instead
+    if (inCell == ivec3(0) && cellCounts[cellIndex] > 1) {
+        vec3 meanPos = vec3(cellPosSums[cellIndex].xyz) / (32.0 * cellPosSums[cellIndex].w) - 1.0;
+        if ((imageLoad(occupancyVolume, cornerCoord + ivec3(floor(meanPos))).r & 1) != 0) {
+            cellCounts[cellIndex] = 0;
+        }
+    }
+    barrier();
+    memoryBarrierShared();
+    // a cell that found nothing to merge keeps its lights exactly as voxelized
+    if (!cellActive || cellCounts[cellIndex] < 2) return;
     if (inCell == ivec3(0)) {
         ivec4 posSum = cellPosSums[cellIndex];
         ivec3 colSum = cellColSums[cellIndex];
+        // the packed fields hold 16 bits, so a dense cell shrinks its sums, not its ratios
+        int maxField = max(max(max(posSum.x, posSum.y), max(posSum.z, posSum.w)),
+            max(max(colSum.x, colSum.y), colSum.z));
+        int divisor = maxField / 0xffff + 1;
+        posSum /= divisor;
+        colSum /= divisor;
+        posSum.w = max(posSum.w, 1);
         // word 3's upper 16 bits carry the merged voxel count, which the readers
-        // multiply the mean colour by to conserve the pool's total brightness
+        // multiply the mean colour by to conserve the cell's total brightness
         uvec4 packedLightData = uvec4(
             uint(posSum.x) | uint(posSum.y) << 16,
             uint(posSum.z) | uint(posSum.w) << 16,
@@ -379,7 +415,12 @@ void main() {
         for (int k = 0; k < 4; k++) {
             globalLightHashMap[4 * hash + k] = packedLightData[k];
         }
-    } else {
+        // a reader reaches the entry through the corner's light bit, level and class,
+        // so a promoted corner has to carry them even though no block lit it
+        if (promote) {
+            imageAtomicOr(occupancyVolume, cornerCoord, 1<<16 | targetKey<<17);
+        }
+    } else if (merged) {
         imageAtomicAnd(occupancyVolume, coord, ~(1<<16));
     }
 }

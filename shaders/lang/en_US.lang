@@ -1205,8 +1205,11 @@ option.LIGHT_TRACE_LENGTH.comment=Controls the maximum distance at which a light
 option.MAX_TRACE_COUNT=Max. Light Sample Count
 option.MAX_TRACE_COUNT.comment=This setting controls the maximum amount of nearby light sources that can cast light on an object.
 
-option.LIGHT_CLUMPING=Lava Light Clumping
-option.LIGHT_CLUMPING.comment=Merges lava and magma emitters into world-aligned 4x2x4 groups carrying their combined brightness, so large pools cost far fewer light samples. §e[*]§r Large gain around lava lakes.
+option.LIGHT_CLUMPING=Light Clumping
+option.LIGHT_CLUMPING.comment=Merges block lights of the same kind and level into world-aligned 4x2x4 groups carrying their combined brightness, so lava lakes, fire fields and lamp walls cost far fewer light samples. §e[*]§r Large gain in the nether and around lava.
+
+option.LIGHT_CLUMP_MIN_DIST=Light Clumping Distance
+option.LIGHT_CLUMP_MIN_DIST.comment=Distance in blocks from the camera at which Light Clumping starts merging. Lights nearer than this are always sampled one by one, so torches and lanterns beside you stay exact. Lower is faster, higher is more accurate. §e[*]§r 0 merges everywhere.
 
 option.LIGHT_COLOR_SATURATION=Light Color Saturation
 option.LIGHT_COLOR_SATURATION.comment=This setting adjusts how much the saturation of light colours is boosted relative to their texture colors. Only applies when the light source colour is not being overridden in the light colour settings.
