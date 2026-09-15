@@ -26,6 +26,16 @@ vec3 nvec3(vec4 pos) {
 
 vec3 refPos = vec3(0.0);
 
+#ifdef VOXY_TRANSLUCENT
+    // Raw reversed LOD depth in an untransformed program. Both possible clear values land outside
+    // (0, 1), and 0.0 back means empty, so an LOD texel with no geometry can never read as a hit.
+    float GetLodOpaqueDepth(vec2 coord) {
+        float depth = 1.0 - texture2D(vxDepthTexOpaque, coord).x;
+        if (depth <= 0.0 || depth >= 1.0) return 0.0;
+        return -ScreenToView(vec3(coord, depth)).z;
+    }
+#endif
+
 vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, float lViewPos, float z0,
                    sampler2D depthtex, float dither, float skyLightFactor, float fresnel,
                    float smoothness, vec3 geoNormal, vec3 color, vec3 shadowMult, float highlightMult) {
@@ -137,6 +147,87 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
             #endif
         #endif
         #if !defined DEFERRED1 && (WATER_REFLECT_QUALITY < 2 || defined DISTANT_HORIZONS) || defined DH_WATER
+        #ifdef VOXY_TRANSLUCENT
+        {   // Method 3: LOD Screen Space Ray Marched Reflection //
+
+            // colortex15 is last frame's deferred1, which over LOD water already holds that water and
+            // its own reflection, so only a verified opaque LOD hit may be read; the rest falls to sky.
+            const int refSteps = 28;
+            const float refDepthSpan = 32.0; // stop the march at 32x the fragment's own depth
+
+            vec3 start = viewPos + normalMR * (lViewPos * 0.025 * (1.0 - fresnel) + 0.05);
+            vec4 clipStart = gbufferProjection * vec4(start, 1.0);
+            // A receding ray has a finite vanishing point (its direction projected at w = 0), so the
+            // screen segment out to there covers the whole ray and takes even pixel steps.
+            vec4 clipInf = gbufferProjection * vec4(nViewPosR, 0.0);
+
+            // Every surface the ray can reach is opaque LOD above the water plane, so a ray that a
+            // wave normal turned downward has nothing but water below it: give it to the sky instead.
+            if (RVdotU > 0.0 && nViewPosR.z < 0.0 && clipStart.w > 0.0 && clipInf.w > 0.0) {
+                vec2 screenStart = clipStart.xy / clipStart.w * 0.5 + 0.5;
+                vec2 screenDif = clipInf.xy / clipInf.w * 0.5 + 0.5 - screenStart;
+                // Depth over w and one over w are what interpolate linearly along a projected segment
+                float invWStart = 1.0 / clipStart.w;
+                float dOverWStart = -start.z * invWStart;
+                float dOverWInf = -nViewPosR.z / clipInf.w;
+
+                if (all(lessThan(abs(screenStart - 0.5), rEdge))) {
+                    vec2 exitLo = (0.5 - rEdge - screenStart) / screenDif;
+                    vec2 exitHi = (0.5 + rEdge - screenStart) / screenDif;
+                    vec2 exitS = max(exitLo, exitHi);
+                    float sMax = clamp(min(min(exitS.x, exitS.y), 1.0 - 1.0 / refDepthSpan), 0.0, 1.0);
+                    float sStep = sMax / float(refSteps + 1);
+
+                    float s = sStep * dither, sMiss = s, sHit = -1.0;
+                    float prevDepth = mix(dOverWStart, dOverWInf, s) / (invWStart * (1.0 - s));
+
+                    for (int i = 0; i < refSteps; i++) {
+                        s += sStep;
+                        float rayDepth = mix(dOverWStart, dOverWInf, s) / (invWStart * (1.0 - s));
+                        float sceneDepth = GetLodOpaqueDepth(screenStart + screenDif * s);
+                        // A surface inside the depth range this step crossed is a real hit; the floor
+                        // keeps a window open where steps are short, the bias keeps grazes out.
+                        float thickness = max(rayDepth - prevDepth, max(1.0, 0.03 * rayDepth));
+                        float dif = rayDepth - sceneDepth;
+                        if (sceneDepth > 0.0 && dif > max(0.5, 0.002 * rayDepth) && dif < thickness) {
+                            sHit = s;
+                            break;
+                        }
+                        prevDepth = rayDepth;
+                        sMiss = s;
+                    }
+
+                    if (sHit > 0.0) {
+                        for (int i = 0; i < 4; i++) { // bisect onto the depth crossing
+                            float sMid = 0.5 * (sMiss + sHit);
+                            float rayDepth = mix(dOverWStart, dOverWInf, sMid) / (invWStart * (1.0 - sMid));
+                            float sceneDepth = GetLodOpaqueDepth(screenStart + screenDif * sMid);
+                            if (sceneDepth > 0.0 && rayDepth - sceneDepth > max(0.5, 0.002 * rayDepth)) sHit = sMid;
+                            else sMiss = sMid;
+                        }
+
+                        vec2 screenPosR = screenStart + screenDif * sHit;
+                        vec2 cdist = abs(screenPosR - 0.5) / rEdge;
+                        vec2 edgeFactor = pow2(pow2(pow2(cdist)));
+                        screenPosR.y += (dither - 0.5) * (0.03 * (edgeFactor.x + edgeFactor.y) + 0.004);
+
+                        // No DoFog: renderDistance is the vanilla far in this program, so it would
+                        // flatten every LOD hit; colortex15's alpha already carries deferred1's skyFade.
+                        reflection = texture2D(colortex15, screenPosR);
+                        reflection.rgb = pow2(reflection.rgb + 1.0);
+
+                        edgeFactor.x = pow2(edgeFactor.x);
+                        edgeFactor = 1.0 - edgeFactor;
+                        reflection.a *= edgeFactor.x * edgeFactor.y;
+                        reflection.a *= clamp01(1.0 - pow(max(cdist.x, cdist.y), 50.0));
+                    }
+                }
+            }
+
+            reflection.a *= reflection.a;
+            reflection.a *= clamp01((dot(nViewPos, nViewPosR) - 0.45) * 10.0); // Fixes perpendicular ref
+        }
+        #else
         {   // Method 2: Mirorred Image Reflection //
 
             #if WATER_REFLECT_QUALITY < 2
@@ -153,12 +244,7 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
                 vec2 edgeFactor = pow2(pow2(pow2(screenPosRM / rEdge)));
                 screenPosR.y += (dither - 0.5) * (0.03 * (edgeFactor.x + edgeFactor.y) + 0.004);
 
-                #ifdef VOXY_TRANSLUCENT
-                    // Untransformed program: raw reversed depth, and only LOD depth fits the LOD projection
-                    screenPosR.z = 1.0 - texture2D(vxDepthTexOpaque, screenPosR.xy).x;
-                #else
-                    screenPosR.z = texture2D(depthtex1, screenPosR.xy).x;
-                #endif
+                screenPosR.z = texture2D(depthtex1, screenPosR.xy).x;
                 vec3 viewPosR = ScreenToView(screenPosR);
                 if (lViewPos <= 2.0 + length(viewPosR)) {
                     reflection = texture2D(colortex15, screenPosR.xy);
@@ -173,6 +259,7 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
             reflection.a *= reflection.a;
             reflection.a *= clamp01((dot(nViewPos, nViewPosR) - 0.45) * 10.0); // Fixes perpendicular ref
         }
+        #endif
         #endif
     #endif
     // ============================== End of Step 2 ============================== //
