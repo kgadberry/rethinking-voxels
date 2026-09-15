@@ -375,6 +375,12 @@ option.BORDER_FOG_DISTANCE=Border Fog Distance
 option.BORDER_FOG_DISTANCE.comment=Where the border fog reaches, as a share of the render distance. With Voxy or Distant Horizons that is the LOD distance, so lower values pull the fog in over the LODs.
 suffix.BORDER_FOG_DISTANCE=%
 
+option.HAZE=Haze
+option.HAZE.comment=Realistic distance haze: a uniform exponential fog toward the sky colour, so far terrain and LODs fade the way real air does. Its reach is set by Haze Visibility.
+option.HAZE_VISIBILITY=Haze Visibility
+option.HAZE_VISIBILITY.comment=Distance at which the haze leaves 2% contrast, in blocks. Lower values thicken the haze and shorten how far you can effectively see.
+suffix.HAZE_VISIBILITY= blocks
+
 option.ATM_FOG_MULT=Atmospheric Fog
 option.ATM_FOG_MULT.comment=Adjusts the intensity of altitude-based fog.
 value.ATM_FOG_MULT.0.50=Very Subtle

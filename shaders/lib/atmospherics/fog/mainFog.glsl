@@ -5,13 +5,44 @@
     #include "/lib/colors/moonPhaseInfluence.glsl"
 #endif
 
-#ifdef BORDER_FOG
+#if defined BORDER_FOG || defined HAZE
     #ifdef OVERWORLD
         #include "/lib/atmospherics/sky.glsl"
     #elif defined NETHER
         #include "/lib/colors/skyColors.glsl"
     #endif
+#endif
 
+#ifdef HAZE
+    // Beer-Lambert haze toward the sky colour; the visibility is where 2% contrast is left (Koschmieder)
+    void DoHaze(inout vec3 color, inout float skyFade, float lViewPos, float VdotU, float VdotS, float dither) {
+        float fog = 1.0 - exp(-3.912 * lViewPos / HAZE_VISIBILITY);
+
+        #ifdef OVERWORLD
+            vec3 fogColorM = GetSky(VdotU, VdotS, dither, true, false);
+        #elif defined NETHER
+            vec3 fogColorM = netherColor;
+        #else
+            vec3 fogColorM = endSkyColor;
+        #endif
+
+        #ifdef ATM_COLOR_MULTS
+            fogColorM *= atmColorMult;
+        #endif
+        #ifdef MOON_PHASE_INF_ATMOSPHERE
+            fogColorM *= moonPhaseInfluence;
+        #endif
+
+        color = mix(color, fogColorM, fog);
+
+        #ifdef GBUFFERS_WATER
+            fog *= 1.0 - isEyeInWater;
+        #endif
+        skyFade = 1.0 - (1.0 - skyFade) * (1.0 - fog);
+    }
+#endif
+
+#ifdef BORDER_FOG
     void DoBorderFog(inout vec3 color, inout float skyFade, float lPos, float VdotU, float VdotS, float dither) {
         #ifdef OVERWORLD
             float fog = lPos / borderFogDistance;
@@ -56,11 +87,10 @@
 
             color = mix(color, fogColorM, fog);
 
-            #ifndef GBUFFERS_WATER
-                skyFade = fog;
-            #else
-                skyFade = fog * (1.0 - isEyeInWater);
+            #ifdef GBUFFERS_WATER
+                fog *= 1.0 - isEyeInWater;
             #endif
+            skyFade = 1.0 - (1.0 - skyFade) * (1.0 - fog); // haze may already have faded this pixel
         }
     }
 #endif
@@ -244,6 +274,9 @@ void DoFog(inout vec3 color, inout float skyFade, float lViewPos, vec3 playerPos
     #endif
     #ifdef ATMOSPHERIC_FOG
         DoAtmosphericFog(color, playerPos, lViewPos, VdotS);
+    #endif
+    #ifdef HAZE
+        DoHaze(color, skyFade, lViewPos, VdotU, VdotS, dither);
     #endif
     #ifdef BORDER_FOG
         DoBorderFog(color, skyFade, max(length(playerPos.xz), abs(playerPos.y)), VdotU, VdotS, dither);
