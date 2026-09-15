@@ -178,8 +178,18 @@ void main() {
         #endif
     #endif
 
+    // A texel with LOD or DH geometry behind it is not sky, and deferred1 already fogged it at its
+    // own distance, so painting the submerged fog colour over it erased every LOD from view.
+    #ifdef DISTANT_HORIZONS
+        bool trueSky0 = z0 == 1.0 && texelFetch(dhDepthTex, texelCoord, 0).r == 1.0;
+        bool trueSky1 = z1 == 1.0 && texelFetch(dhDepthTex1, texelCoord, 0).r == 1.0;
+    #else
+        bool trueSky0 = z0 == 1.0;
+        bool trueSky1 = z1 == 1.0;
+    #endif
+
     if (isEyeInWater == 1) {
-        if (z0 == 1.0) color.rgb = waterFogColor;
+        if (trueSky0) color.rgb = waterFogColor;
 
         vec3 underwaterMult = vec3(0.80, 0.87, 0.97);
         color.rgb *= underwaterMult * 0.85;
@@ -189,7 +199,7 @@ void main() {
             lightFog *= underwaterMult;
         #endif
     } else if (isEyeInWater == 2) {
-        if (z1 == 1.0) color.rgb = fogColor * 5.0;
+        if (trueSky1) color.rgb = fogColor * 5.0;
 
         volumetricEffect.rgb *= 0.0;
         #ifdef COLORED_LIGHT_FOG
