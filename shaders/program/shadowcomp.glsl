@@ -281,8 +281,9 @@ void main() {
 #endif
 
 
+// lava and magma light clumping
 #ifdef CSH_B
-#ifdef LIGHT_CLUMPING
+#ifdef LAVA_LIGHT_CLUMPING
 #if VX_VOL_SIZE == 0
     const ivec3 workGroups = ivec3(12, 8, 12);
 #elif VX_VOL_SIZE == 1
@@ -297,40 +298,48 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout(r32i) uniform restrict iimage3D occupancyVolume;
 
-uniform vec3 cameraPosition;
-
 #include "/lib/vx/positionHashing.glsl"
+#include "/lib/vx/lavaClumping.glsl"
 #define WRITE_TO_SSBOS
 #include "/lib/vx/SSBOs.glsl"
-shared ivec3 lightCs[512];
-shared int lightCount;
-shared ivec4 lightLocs[8][8][8];
-shared ivec3 lightCols[8][8][8];
+
+// 8 is divisible by every cell dimension, so no cell straddles a workgroup
+const ivec3 cellsPerGroup = ivec3(8) / lavaClumpCellSize;
+const int cellCountPerGroup = cellsPerGroup.x * cellsPerGroup.y * cellsPerGroup.z;
+
+shared ivec4 cellPosSums[cellCountPerGroup];
+shared ivec3 cellColSums[cellCountPerGroup];
+shared int cellCounts[cellCountPerGroup];
+shared int cellKeys[cellCountPerGroup];
+
 void main() {
-    int index = int(gl_LocalInvocationID.x) + 8 * int(gl_LocalInvocationID.y) + 64 * int(gl_LocalInvocationID.z);
-    if (index == 0) {
-        lightCount = 0;
+    int index = int(gl_LocalInvocationIndex);
+    if (index < cellCountPerGroup) {
+        cellPosSums[index] = ivec4(0);
+        cellColSums[index] = ivec3(0);
+        cellCounts[index] = 0;
+        cellKeys[index] = -1;
     }
-    ivec3 c = ivec3(gl_LocalInvocationID);
-    lightLocs[c.x][c.y][c.z] = ivec4(0);
-    lightCols[c.x][c.y][c.z] = ivec3(0);
+    ivec3 localCoord = ivec3(gl_LocalInvocationID);
+    ivec3 inCell = localCoord % lavaClumpCellSize;
+    ivec3 cellId = localCoord / lavaClumpCellSize;
+    int cellIndex = cellId.x + cellsPerGroup.x * (cellId.y + cellsPerGroup.y * cellId.z);
+    ivec3 coord = ivec3(gl_GlobalInvocationID) + lavaClumpAlign();
+    int thisOccupancy = imageLoad(occupancyVolume, coord).r;
+    bool isLakeLight = (thisOccupancy >> 16 & 1) != 0 && isLakeLightMat(thisOccupancy);
     barrier();
     memoryBarrierShared();
-    ivec3 coord = ivec3(gl_GlobalInvocationID) + ivec3(mod(cameraPosition, vec3(2)));
-    int thisOccupancyData0 = imageLoad(occupancyVolume, coord).r;
-    if ((thisOccupancyData0 >> 16 & 1) != 0 && (thisOccupancyData0 >> 27 & 1) == 0) {
-        lightCs[atomicAdd(lightCount, 1)] = c;
+    // the min corner is the representative because a reader can derive it from any
+    // merged voxel's own coord, with no search through the cell
+    if (isLakeLight && inCell == ivec3(0)) {
+        cellKeys[cellIndex] = thisOccupancy >> 17 & 1023;
     }
     barrier();
     memoryBarrierShared();
-    uint hash = 0xffffffffu;
-    bool spreadDown = false;
-    if (index < lightCount) {
-        c = lightCs[index];
-        coord = c + 8 * ivec3(gl_WorkGroupID) + ivec3(mod(cameraPosition, vec3(2)));
-        ivec3 lightLoc0 = coord - voxelVolumeSize/2;
-        hash = posToHash(lightLoc0) % uint(1<<18);
-        int thisOccupancy = imageLoad(occupancyVolume, coord).r;
+    bool merged = isLakeLight && (thisOccupancy >> 17 & 1023) == cellKeys[cellIndex];
+    uint hash = 0;
+    if (merged) {
+        hash = posToHash(coord - voxelVolumeSize/2) % uint(1<<18);
         uvec2 packedLightSubPos = uvec2(
             globalLightHashMap[4 * hash],
             globalLightHashMap[4 * hash + 1]
@@ -340,79 +349,38 @@ void main() {
             globalLightHashMap[4 * hash + 3]
         );
         ivec4 subPos = ivec4(packedLightSubPos.x & 0xffffu, packedLightSubPos.x >> 16, packedLightSubPos.y & 0xffffu, packedLightSubPos.y >> 16);
-        ivec4 col = ivec4(packedLightCol.x & 0xffffu, packedLightCol.x >> 16, packedLightCol.y & 0xffffu, packedLightCol.y >> 16);
-        ivec3 downRange = coord - (coord + ivec3(mod(cameraPosition, vec3(2))))%2;
+        ivec3 col = ivec3(packedLightCol.x & 0xffffu, packedLightCol.x >> 16, packedLightCol.y & 0xffffu);
+        // every position is a sum over w contributions, so moving it by one voxel
+        // towards the min corner costs 32 * w
+        ivec4 offset = ivec4(inCell, 0);
         for (int k = 0; k < 4; k++) {
-            atomicAdd(lightLocs[c.x][c.y][c.z][k], subPos[k]);
+            atomicAdd(cellPosSums[cellIndex][k], subPos[k] + 32 * offset[k] * subPos.w);
         }
         for (int k = 0; k < 3; k++) {
-            atomicAdd(lightCols[c.x][c.y][c.z][k], col[k]);
+            atomicAdd(cellColSums[cellIndex][k], col[k]);
         }
-        for (int dir1 = 0; dir1 < 3; dir1++) {
-            ivec4 d1 = ivec4(0);
-            ivec3 offsetCoord1 = coord;
-            offsetCoord1[dir1]--;
-            d1[dir1]--;
-            int otherOccupancy1 = imageLoad(occupancyVolume, offsetCoord1).r;
-            if (all(greaterThanEqual(offsetCoord1, downRange)) && (otherOccupancy1 >> 16 & 1) != 0 && (otherOccupancy1 >> 17 & 1023) == (thisOccupancy >> 17 & 1023)) {
-                spreadDown = true;
-                for (int k = 0; k < 4; k++) {
-                    atomicAdd(lightLocs[c.x+d1.x][c.y+d1.y][c.z+d1.z][k], subPos[k] - 32 * d1[k] * subPos[3]);
-                }
-                for (int k = 0; k < 3; k++) {
-                    atomicAdd(lightCols[c.x+d1.x][c.y+d1.y][c.z+d1.z][k], col[k]);
-                }
-                for (int dir2 = 0; dir2 < 3; dir2++) {
-                    ivec4 d2 = d1;
-                    ivec3 offsetCoord2 = offsetCoord1;
-                    offsetCoord2[dir2]--;
-                    d2[dir2]--;
-                    int otherOccupancy2 = imageLoad(occupancyVolume, offsetCoord2).r;
-                    if (all(greaterThanEqual(offsetCoord2, downRange)) && (otherOccupancy2 >> 16 & 1) != 0 && (otherOccupancy2 >> 17 & 1023) == (thisOccupancy >> 17 & 1023)) {
-                        for (int k = 0; k < 4; k++) {
-                            atomicAdd(lightLocs[c.x+d2.x][c.y+d2.y][c.z+d2.z][k], subPos[k] - 32 * d2[k] * subPos[3]);
-                        }
-                        for (int k = 0; k < 3; k++) {
-                            atomicAdd(lightCols[c.x+d2.x][c.y+d2.y][c.z+d2.z][k], col[k]);
-                        }
-                        for (int dir3 = 0; dir3 < 3; dir3++) {
-                            ivec4 d3 = d2;
-                            ivec3 offsetCoord3 = offsetCoord2;
-                            offsetCoord3[dir3]--;
-                            d3[dir3]--;
-                            int otherOccupancy3 = imageLoad(occupancyVolume, offsetCoord3).r;
-                            if (all(greaterThanEqual(offsetCoord3, downRange)) && (otherOccupancy3 >> 16 & 1) != 0 && (otherOccupancy3 >> 17 & 1023) == (thisOccupancy >> 17 & 1023)) {
-                                for (int k = 0; k < 4; k++) {
-                                    atomicAdd(lightLocs[c.x+d3.x][c.y+d3.y][c.z+d3.z][k], subPos[k] - 32 * d3[k] * subPos[3]);
-                                }
-                                for (int k = 0; k < 3; k++) {
-                                    atomicAdd(lightCols[c.x+d3.x][c.y+d3.y][c.z+d3.z][k], col[k]);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        atomicAdd(cellCounts[cellIndex], 1);
     }
     barrier();
     memoryBarrierShared();
-    if (index < lightCount) {
-        if (spreadDown) {
-            imageAtomicAnd(occupancyVolume, coord, ~(1<<16));
-        } else {
-            //lightCols[c.x][c.y][c.z] /= max(1, lightLocs[c.x][c.y][c.z].w);
-            //lightLocs[c.x][c.y][c.z] /= max(1, lightLocs[c.x][c.y][c.z].w);
-            uvec4 packedLightData = uvec4(
-                uint(lightLocs[c.x][c.y][c.z].x) | uint(lightLocs[c.x][c.y][c.z].y) << 16,
-                uint(lightLocs[c.x][c.y][c.z].z) | uint(lightLocs[c.x][c.y][c.z].w) << 16,
-                uint(lightCols[c.x][c.y][c.z].x) | uint(lightCols[c.x][c.y][c.z].y) << 16,
-                uint(lightCols[c.x][c.y][c.z].z)
-            );
-            for (int k = 0; k < 4; k++) {
-                globalLightHashMap[4 * hash + k] = packedLightData[k];
-            }
+    // a cell that found nothing to merge keeps its light exactly as voxelized
+    if (!merged || cellCounts[cellIndex] < 2) return;
+    if (inCell == ivec3(0)) {
+        ivec4 posSum = cellPosSums[cellIndex];
+        ivec3 colSum = cellColSums[cellIndex];
+        // word 3's upper 16 bits carry the merged voxel count, which the readers
+        // multiply the mean colour by to conserve the pool's total brightness
+        uvec4 packedLightData = uvec4(
+            uint(posSum.x) | uint(posSum.y) << 16,
+            uint(posSum.z) | uint(posSum.w) << 16,
+            uint(colSum.x) | uint(colSum.y) << 16,
+            uint(colSum.z) | (LAVA_CLUMP_MERGED_FLAG | uint(cellCounts[cellIndex])) << 16
+        );
+        for (int k = 0; k < 4; k++) {
+            globalLightHashMap[4 * hash + k] = packedLightData[k];
         }
+    } else {
+        imageAtomicAnd(occupancyVolume, coord, ~(1<<16));
     }
 }
 #else

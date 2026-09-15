@@ -73,6 +73,7 @@ layout(rgba16i) uniform iimage3D lightStorage;
 #include "/lib/vx/voxelReading.glsl"
 #include "/lib/util/random.glsl"
 #include "/lib/vx/positionHashing.glsl"
+#include "/lib/vx/lavaClumping.glsl"
 
 #if MAX_TRACE_COUNT < 128
     #define MAX_LIGHT_COUNT 128
@@ -147,7 +148,19 @@ float distanceFalloff(float maxDistRelDist) {
 }
 
 void registerLight(ivec3 lightCoord, vec3 referencePos, float weight) {
-    bool isStillLight = (imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r >> 16 & 1) != 0;
+    int thisOccupancy = imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r;
+    bool isStillLight = (thisOccupancy >> 16 & 1) != 0;
+    #ifdef LAVA_LIGHT_CLUMPING
+        // a clumped lake voxel keeps its material bits, so the cell's representative
+        // follows from its own coord and no neighbour search is needed
+        if (!isStillLight && isLakeLightMat(thisOccupancy)) {
+            ivec3 cellMin = lavaClumpCellMin(lightCoord);
+            if ((imageLoad(occupancyVolume, cellMin + voxelVolumeSize/2).r >> 16 & 1) != 0) {
+                isStillLight = true;
+                lightCoord = cellMin;
+            }
+        }
+    #endif
     if (!isStillLight) {
         for (int k = 0; k < 6; k++) {
             ivec3 offset = (k/3*2-1) * ivec3(equal(ivec3(k%3), ivec3(0, 1, 2)));
@@ -173,6 +186,8 @@ void registerLight(ivec3 lightCoord, vec3 referencePos, float weight) {
             int thisLightExtraData = imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r;
             vec3 subLightPos = (packedLightSubPos.y >> 16) == 0 ? vec3(0.5) : 1.0/32.0 * vec3(packedLightSubPos.x & 0xffff, packedLightSubPos.x>>16, packedLightSubPos.y & 0xffff) / (packedLightSubPos.y >> 16) - 1;
             vec3 lightCol = 1.0/32.0 * vec3(packedLightCol.x & 0xffff, packedLightCol.x>>16, packedLightCol.y & 0xffff) / (packedLightSubPos.y >> 16);
+            // scale a clumped lake light back up before it is weighed and sorted
+            lightCol *= lavaClumpMergeScale(packedLightCol.y >> 16);
             vec3 dir = lightCoord + subLightPos - referencePos;
             float dirLen = length(dir);
             float thisTraceLen = (thisLightExtraData>>17 & 31)/32.0;
