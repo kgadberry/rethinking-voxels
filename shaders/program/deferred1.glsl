@@ -206,6 +206,9 @@ void main() {
     float VdotS = dot(nViewPos, sunVec);
     float skyFade = 0.0;
     vec3 waterRefColor = vec3(0.0);
+    #ifdef VOXY_AS_DH
+        float lodWaterRefMult = 1.0;
+    #endif
     vec3 auroraBorealis = vec3(0.0);
     vec3 nightNebula = vec3(0.0);
     vec3 texture5 = texelFetch(colortex5, texelCoord, 0).rgb;
@@ -413,6 +416,12 @@ void main() {
                 #endif
                 
                 DoFog(color.rgb, skyFade, lViewPos, playerPos, VdotU, VdotS, dither);
+
+                #ifdef VOXY_AS_DH
+                    // LOD translucent in front means this texel is LOD water, not terrain: zero its
+                    // reflection alpha so no reflection sample can feed it back as a hit.
+                    if (z0DH != texelFetch(dhDepthTex1, texelCoord, 0).r) lodWaterRefMult = 0.0;
+                #endif
             } else { // Start of Actual Sky
         #endif
 
@@ -501,7 +510,11 @@ void main() {
 
     /*RENDERTARGETS:0,15,4,8*/
     gl_FragData[0] = vec4(color, 1.0);
-    gl_FragData[1] = vec4(waterRefColor, 1.0 - skyFade);
+    #ifdef VOXY_AS_DH
+        gl_FragData[1] = vec4(waterRefColor, (1.0 - skyFade) * lodWaterRefMult);
+    #else
+        gl_FragData[1] = vec4(waterRefColor, 1.0 - skyFade);
+    #endif
     gl_FragData[2] = vec4(cloudLinearDepth, texture5 * 0.5 + 0.5);
     gl_FragData[3] = vec4(smoothnessD, materialMaskInt / 255.0, 0, 1);
     #ifdef TEMPORAL_FILTER
