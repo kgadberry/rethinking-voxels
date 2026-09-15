@@ -372,11 +372,11 @@ void main() {
     if (validData) {
         uint traceNum = 0;
         uint thisLightIndex = 0;
+        float accumLight = 0.0;
         for (; thisLightIndex < MAX_LIGHT_COUNT; thisLightIndex++) {
             if (thisLightIndex >= lightCount) break;
             float lightSize = 0.5;
             vec3 lightPos = lightPositions[thisLightIndex];
-            lightSize = clamp(lightSize, 0.01, getDistanceField(lightPos));
             float ndotl0 = max(0.0, dot(normalize(lightPos - vxPos), normalDepthData.xyz));
             vec3 dir = lightPos - biasedVxPos;
             float dirLen = length(dir);
@@ -385,6 +385,12 @@ void main() {
             if (dirLen < thisTraceLen * LIGHT_TRACE_LENGTH && ndotl0 > 0.001) {
                 float lightBrightness = 1.5 * thisTraceLen;
                 lightBrightness *= lightBrightness;
+                // an unoccluded trace is the most this light could ever add, so skip it
+                // when even that stays under the cutoff. The budget only counts traces.
+                float lightBound = length(lightCols[thisLightIndex]) * ndotl0 *
+                    distanceFalloff(dirLen / (thisTraceLen * LIGHT_TRACE_LENGTH)) * lightBrightness;
+                if (lightBound < LIGHT_CUTOFF * (0.01 * accumLight + 0.0001)) continue;
+                lightSize = clamp(lightSize, 0.01, getDistanceField(lightPos));
                 vec4 rayHit1 = coneTrace(biasedVxPos, (1.0 - 0.1 / (dirLen + 0.1)) * dir, lightSize * LIGHTSOURCE_SIZE_MULT / dirLen, dither);
                 if (rayHit1.w > 0.01) {
                     #ifdef TRANSLUCENT_LIGHT_TINT
@@ -411,6 +417,7 @@ void main() {
                         lightBrightness;
                     if (!any(isnan(thisBaseCol)) && !isnan(ndotl0)) {
                         writeColor += thisBaseCol * ndotl0;
+                        accumLight = length(writeColor);
                         #ifdef BLOCKLIGHT_HIGHLIGHT
 
                             float specularBrightness = GGX(

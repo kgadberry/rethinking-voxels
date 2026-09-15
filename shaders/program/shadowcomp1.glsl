@@ -324,6 +324,7 @@ void main() {
     vec3 writeColor = vec3(0);
     if (insideFrustrum && activeFrame) {
         uint traceNum = 0;
+        float accumLight = 0.0;
         for (uint thisLightIndex = 0; thisLightIndex < MAX_LIGHT_COUNT; thisLightIndex++) {
             if (thisLightIndex >= lightCount) break;
             vec3 lightPos = lightPositions[thisLightIndex];
@@ -336,6 +337,11 @@ void main() {
                 float lightBrightness = 1.5 * thisTraceLen;
                 lightBrightness *= lightBrightness;
                 float ndotl = ndotl0 * lightBrightness;
+                // an unoccluded trace is the most this light could ever add, so skip it
+                // when even that stays under the cutoff. The budget only counts traces.
+                float lightBound = length(lightCols[thisLightIndex]) * ndotl
+                    * distanceFalloff(dirLen / (thisTraceLen * LIGHT_TRACE_LENGTH)) * lightBrightness;
+                if (lightBound < LIGHT_CUTOFF * (0.01 * accumLight + 0.0001)) continue;
                 vec4 rayHit1 = coneTrace(vxPos, (1.0 - 0.1 / (dirLen + 0.1)) * dir, 0.4 / dirLen, dither);
                 if (rayHit1.w > 0.01) {
                     #ifdef TRANSLUCENT_LIGHT_TINT
@@ -361,6 +367,7 @@ void main() {
                     #endif
                         * rayHit1.w
                         * totalBrightness;
+                    accumLight = length(writeColor);
                     int thisWeight = int(10000.5 * length(lightColor) * totalBrightness);
                     atomicMax(lightCoords[thisLightIndex].w, thisWeight);
                 }

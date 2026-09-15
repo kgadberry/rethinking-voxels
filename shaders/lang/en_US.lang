@@ -1205,6 +1205,9 @@ option.LIGHT_TRACE_LENGTH.comment=Controls the maximum distance at which a light
 option.MAX_TRACE_COUNT=Max. Light Sample Count
 option.MAX_TRACE_COUNT.comment=This setting controls the maximum amount of nearby light sources that can cast light on an object.
 
+option.LIGHT_CUTOFF=Light Cutoff
+option.LIGHT_CUTOFF.comment=Share of the light a surface has already received, in percent, below which another light source is not traced at all. Skipped lights leave the sample budget for lights that can still be seen, so scenes full of dim emitters like the nether get much cheaper. §e[*]§r 0 traces everything.
+
 option.LIGHT_CLUMPING=Light Clumping
 option.LIGHT_CLUMPING.comment=Merges block lights of the same kind and level into world-aligned 4x2x4 groups carrying their combined brightness, so lava lakes, fire fields and lamp walls cost far fewer light samples. §e[*]§r Large gain in the nether and around lava.
 

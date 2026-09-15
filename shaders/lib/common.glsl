@@ -55,6 +55,7 @@
     #define LIGHT_COLOR_SATURATION 0.5 //[0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
     #define LIGHTSOURCE_SIZE_MULT 0.6 //[0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
     #define MAX_TRACE_COUNT 32 //[1 2 4 8 16 24 32 48 64 96 128 192 256]
+    #define LIGHT_CUTOFF 1 //[0 0.5 1 2 4 8]
     #define RT_STEPS 70 //[30 50 70 100]
     #define TRANSLUCENT_LIGHT_TINT
     #define LIGHT_CLUMPING
