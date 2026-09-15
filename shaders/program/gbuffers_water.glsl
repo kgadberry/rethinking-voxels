@@ -163,6 +163,13 @@ void main() {
         if (pow2(cloudLinearDepth + OSIEBCA * dither) * renderDistance < min(lViewPos, renderDistance)) discard;
     #endif
 
+    // The outermost loaded ice still draws the side face that faces the LOD region, because nothing
+    // loaded is out there to cull it against, and it darkens the LOD ice behind it as a hard line.
+    #if defined LOD_ICE_EDGE_FIX && defined DISTANT_HORIZONS
+        if (mat == 32004 && abs(NdotU) < 0.1 && lViewPos > far * 0.85 &&
+            texelFetch(dhDepthTex, texelCoord, 0).r < 1.0) discard;
+    #endif
+
     float materialMask = 0.0;
 
     vec3 nViewPos = normalize(viewPos);

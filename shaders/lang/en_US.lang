@@ -1151,6 +1151,8 @@ option.XLIGHT_B=Blocklight Blue Multiplier
 
 option.XLIGHT_I=Blocklight Intensity
 
+option.LOD_ICE_EDGE_FIX=Hide Ice Edge At LODs
+option.LOD_ICE_EDGE_FIX.comment=Hides the side faces of the outermost loaded ice blocks, which have no loaded neighbour to cull them against and so draw as a dark line over the LOD ice behind them. Only ice, only vertical faces, and only where LOD geometry is already covering the pixel.
 option.VOXY_DEBUG=Voxy LOD Debug
 value.VOXY_DEBUG.0=Off
 value.VOXY_DEBUG.1=Flat Magenta
