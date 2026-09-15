@@ -207,19 +207,27 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
                         }
 
                         vec2 screenPosR = screenStart + screenDif * sHit;
-                        vec2 cdist = abs(screenPosR - 0.5) / rEdge;
-                        vec2 edgeFactor = pow2(pow2(pow2(cdist)));
-                        screenPosR.y += (dither - 0.5) * (0.03 * (edgeFactor.x + edgeFactor.y) + 0.004);
 
-                        // No DoFog: renderDistance is the vanilla far in this program, so it would
-                        // flatten every LOD hit; colortex15's alpha already carries deferred1's skyFade.
-                        reflection = texture2D(colortex15, screenPosR);
-                        reflection.rgb = pow2(reflection.rgb + 1.0);
+                        // Seagrass and kelp are baked as cubes filling the water cell, so their faces
+                        // clear the fluid top by an eighth of a block; below that a hit is water column.
+                        float hitDepth = 1.0 - texture2D(vxDepthTexOpaque, screenPosR).x;
+                        float hitRise = ViewToPlayer(ScreenToView(vec3(screenPosR, hitDepth))).y - playerPos.y;
 
-                        edgeFactor.x = pow2(edgeFactor.x);
-                        edgeFactor = 1.0 - edgeFactor;
-                        reflection.a *= edgeFactor.x * edgeFactor.y;
-                        reflection.a *= clamp01(1.0 - pow(max(cdist.x, cdist.y), 50.0));
+                        if (hitRise > max(0.25, 0.002 * lViewPos)) {
+                            vec2 cdist = abs(screenPosR - 0.5) / rEdge;
+                            vec2 edgeFactor = pow2(pow2(pow2(cdist)));
+                            screenPosR.y += (dither - 0.5) * (0.03 * (edgeFactor.x + edgeFactor.y) + 0.004);
+
+                            // No DoFog: renderDistance is the vanilla far in this program, so it would
+                            // flatten every LOD hit; colortex15's alpha already carries deferred1's skyFade.
+                            reflection = texture2D(colortex15, screenPosR);
+                            reflection.rgb = pow2(reflection.rgb + 1.0);
+
+                            edgeFactor.x = pow2(edgeFactor.x);
+                            edgeFactor = 1.0 - edgeFactor;
+                            reflection.a *= edgeFactor.x * edgeFactor.y;
+                            reflection.a *= clamp01(1.0 - pow(max(cdist.x, cdist.y), 50.0));
+                        }
                     }
                 }
             }
