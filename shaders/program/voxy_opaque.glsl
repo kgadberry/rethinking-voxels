@@ -154,11 +154,26 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
     } else if (mat == 10005 || mat == 10124 || mat == 10132) { // Foliage, Grass Blocks
         smoothnessG = pow2(color.g) * 0.85;
     } else if (mat == 10068) { // Lava
-        emission = 1.5;
+        #ifdef IPBR
+            // lava.glsl normalises by the texel average; the tile's mip 4 texel is that average
+            vec3 avgColor = textureLod(blockModelAtlas, getBaseUV() + 0.5 / (vec2(3.0, 2.0) * 256.0), 4.0).rgb;
+            color.rgb /= max(GetLuminance(avgColor) * 2.5, 0.001);
+            noDirectionalShading = true;
+            lmCoordM = vec2(0.0);
+            emission = GetLuminance(color.rgb) * 6.5;
+        #elif defined CUSTOM_PBR && CUSTOM_EMISSION_INTENSITY > 0
+            // No specular map reaches the patch, and labPBR packs mark lava fully emissive
+            emission = 0.03 * CUSTOM_EMISSION_INTENSITY;
+        #endif
     } else if (mat == 10396 || mat == 10412 || mat == 10448 || mat == 10452 || mat == 10560 ||
                mat == 10564 || mat == 10648 || mat == 10652 || mat == 10656) {
         emission = 2.5; // Light sources bright enough to still read at LOD range
     }
+
+    #ifndef IPBR
+        // gbuffers_terrain pulls full-bright lightmaps back to 0.95, where the blocklight curve is sane
+        if (lmCoord.x > 0.99999) lmCoordM.x = 0.95;
+    #endif
 
     #ifdef SNOWY_WORLD
         DoSnowyWorld(color, smoothnessG, highlightMult, smoothnessD, emission,
