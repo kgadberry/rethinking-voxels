@@ -723,6 +723,10 @@
 
     #ifndef DISTANT_HORIZONS
         float renderDistance = far;
+    #elif defined VOXY_AS_DH
+        // voxy reports its level-0 section reach in blocks, but its outermost nodes are level 4,
+        // 512-block sections, so the LOD horizon is sixteen times what the uniform says
+        float renderDistance = float(dhRenderDistance) * 16.0;
     #else
         float renderDistance = float(dhRenderDistance);
     #endif
