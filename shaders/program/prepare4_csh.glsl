@@ -36,7 +36,7 @@ ivec3 floorCamPosOffset =
 #include "/lib/vx/voxelReading.glsl"
 #include "/lib/util/random.glsl"
 #include "/lib/vx/positionHashing.glsl"
-#include "/lib/vx/lavaClumping.glsl"
+#include "/lib/vx/lightClumping.glsl"
 #ifdef BLOCKLIGHT_HIGHLIGHT
     #include "/lib/lighting/ggx.glsl"
 #endif
@@ -132,11 +132,11 @@ float distanceFalloff(float maxDistRelDist) {
 void registerLight(ivec3 lightCoord, vec3 referencePos, vec3 referenceNormal, float weight) {
     int thisOccupancy = imageLoad(occupancyVolume, lightCoord + voxelVolumeSize/2).r;
     bool isStillLight = (thisOccupancy >> 16 & 1) != 0;
-    #ifdef LAVA_LIGHT_CLUMPING
+    #ifdef LIGHT_CLUMPING
         // a clumped lake voxel keeps its material bits, so the cell's representative
         // follows from its own coord and no neighbour search is needed
         if (!isStillLight && isLakeLightMat(thisOccupancy)) {
-            ivec3 cellMin = lavaClumpCellMin(lightCoord);
+            ivec3 cellMin = lightClumpCellMin(lightCoord);
             if ((imageLoad(occupancyVolume, cellMin + voxelVolumeSize/2).r >> 16 & 1) != 0) {
                 isStillLight = true;
                 lightCoord = cellMin;
@@ -169,7 +169,7 @@ void registerLight(ivec3 lightCoord, vec3 referencePos, vec3 referenceNormal, fl
             vec3 subLightPos = (packedLightSubPos.y >> 16) == 0 ? vec3(0.5) : 1.0/32.0 * vec3(packedLightSubPos.x & 0xffff, packedLightSubPos.x>>16, packedLightSubPos.y & 0xffff) / (packedLightSubPos.y >> 16) - 1;
             vec3 lightCol = 1.0/32.0 * vec3(packedLightCol.x & 0xffff, packedLightCol.x>>16, packedLightCol.y & 0xffff) / (packedLightSubPos.y >> 16);
             // scale a clumped lake light back up before it is weighed and sorted
-            lightCol *= lavaClumpMergeScale(packedLightCol.y >> 16);
+            lightCol *= lightClumpMergeScale(packedLightCol.y >> 16);
             vec3 dir = lightCoord + subLightPos - referencePos;
             float dirLen = length(dir);
             float ndotl = dot(normalize(dir), referenceNormal);

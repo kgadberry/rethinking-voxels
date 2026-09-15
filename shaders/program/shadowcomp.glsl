@@ -283,7 +283,7 @@ void main() {
 
 // lava and magma light clumping
 #ifdef CSH_B
-#ifdef LAVA_LIGHT_CLUMPING
+#ifdef LIGHT_CLUMPING
 #if VX_VOL_SIZE == 0
     const ivec3 workGroups = ivec3(12, 8, 12);
 #elif VX_VOL_SIZE == 1
@@ -299,12 +299,12 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 layout(r32i) uniform restrict iimage3D occupancyVolume;
 
 #include "/lib/vx/positionHashing.glsl"
-#include "/lib/vx/lavaClumping.glsl"
+#include "/lib/vx/lightClumping.glsl"
 #define WRITE_TO_SSBOS
 #include "/lib/vx/SSBOs.glsl"
 
 // 8 is divisible by every cell dimension, so no cell straddles a workgroup
-const ivec3 cellsPerGroup = ivec3(8) / lavaClumpCellSize;
+const ivec3 cellsPerGroup = ivec3(8) / lightClumpCellSize;
 const int cellCountPerGroup = cellsPerGroup.x * cellsPerGroup.y * cellsPerGroup.z;
 
 shared ivec4 cellPosSums[cellCountPerGroup];
@@ -321,10 +321,10 @@ void main() {
         cellKeys[index] = -1;
     }
     ivec3 localCoord = ivec3(gl_LocalInvocationID);
-    ivec3 inCell = localCoord % lavaClumpCellSize;
-    ivec3 cellId = localCoord / lavaClumpCellSize;
+    ivec3 inCell = localCoord % lightClumpCellSize;
+    ivec3 cellId = localCoord / lightClumpCellSize;
     int cellIndex = cellId.x + cellsPerGroup.x * (cellId.y + cellsPerGroup.y * cellId.z);
-    ivec3 coord = ivec3(gl_GlobalInvocationID) + lavaClumpAlign();
+    ivec3 coord = ivec3(gl_GlobalInvocationID) + lightClumpAlign();
     int thisOccupancy = imageLoad(occupancyVolume, coord).r;
     bool isLakeLight = (thisOccupancy >> 16 & 1) != 0 && isLakeLightMat(thisOccupancy);
     barrier();
@@ -374,7 +374,7 @@ void main() {
             uint(posSum.x) | uint(posSum.y) << 16,
             uint(posSum.z) | uint(posSum.w) << 16,
             uint(colSum.x) | uint(colSum.y) << 16,
-            uint(colSum.z) | (LAVA_CLUMP_MERGED_FLAG | uint(cellCounts[cellIndex])) << 16
+            uint(colSum.z) | (LIGHT_CLUMP_MERGED_FLAG | uint(cellCounts[cellIndex])) << 16
         );
         for (int k = 0; k < 4; k++) {
             globalLightHashMap[4 * hash + k] = packedLightData[k];
