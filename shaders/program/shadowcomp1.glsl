@@ -307,6 +307,7 @@ void main() {
 
     vec3 writeColor = vec3(0);
     if (insideFrustrum && activeFrame) {
+        uint traceNum = 0;
         for (uint thisLightIndex = 0; thisLightIndex < MAX_LIGHT_COUNT; thisLightIndex++) {
             if (thisLightIndex >= lightCount) break;
             vec3 lightPos = lightPositions[thisLightIndex];
@@ -347,6 +348,9 @@ void main() {
                     int thisWeight = int(10000.5 * length(lightColor) * totalBrightness);
                     atomicMax(lightCoords[thisLightIndex].w, thisWeight);
                 }
+                // the list is sorted by weight, so the cap keeps the strongest lights
+                traceNum++;
+                if (traceNum >= MAX_TRACE_COUNT) break;
             }
         }
     }
