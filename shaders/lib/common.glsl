@@ -643,7 +643,9 @@
         #undef DIRECTIONAL_SHADING
         #undef SIDE_SHADOWING
     #endif
-    #ifdef GBUFFERS_WATER
+    // gbuffers_water drops the diffuse highlight because GetReflection adds the same GGX lobe
+    // weighted by fresnel; the LOD translucent patch has to drop it for the same reason.
+    #if defined GBUFFERS_WATER || defined VOXY_TRANSLUCENT
         #undef LIGHT_HIGHLIGHT
     #endif
 
