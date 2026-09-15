@@ -92,7 +92,12 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
     #endif
 
     #ifdef OVERWORLD
-        float skyLightShadowMult = pow2(pow2(lightmapY2));
+        #ifdef VOXY_OPAQUE
+            // LOD sea floors never reach the shadow map, and y^8 buries every submerged block
+            float skyLightShadowMult = pow2(lightmapY2);
+        #else
+            float skyLightShadowMult = pow2(pow2(lightmapY2));
+        #endif
     #else
         float skyLightShadowMult = 1.0;
     #endif
