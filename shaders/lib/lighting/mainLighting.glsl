@@ -124,7 +124,7 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
 
             NdotL *= 1.0 - 0.7 * (1.0 - pow2(pow2(NdotUmax0))) * NPdotU;
         #endif
-        #if SHADOW_QUALITY == -1 && defined GBUFFERS_TERRAIN || defined DREAM_TWEAKED_LIGHTING
+        #if SHADOW_QUALITY == -1 && (defined GBUFFERS_TERRAIN || defined VOXY_OPAQUE) || defined DREAM_TWEAKED_LIGHTING
             if (subsurfaceMode == 1) {
                 NdotU = 1.0;
                 NdotUmax0 = 1.0;
@@ -142,7 +142,7 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
         #ifdef GBUFFERS_TEXTURED
             NdotLM = 1.0;
         #else
-            #ifdef GBUFFERS_TERRAIN
+            #if defined GBUFFERS_TERRAIN || defined VOXY_OPAQUE
                 if (subsurfaceMode != 0) {
                     #if defined CUSTOM_PBR && defined POM && POM_QUALITY >= 128 && POM_LIGHTING_MODE == 2
                         shadowMult *= max(pow2(pow2(dot(normalM, geoNormal))), sqrt2(NdotLmax0));
@@ -229,7 +229,7 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
 
                         // Shadow bias without peter-panning //
                         #ifndef GBUFFERS_TEXTURED
-                            #ifdef GBUFFERS_TERRAIN
+                            #if defined GBUFFERS_TERRAIN || defined VOXY_OPAQUE
                                 if (subsurfaceMode != 1)
                             #endif
                             {
@@ -250,7 +250,7 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
                         vec3 shadowPos = GetShadowPos(playerPosM);
 
                         bool leaves = false;
-                        #ifdef GBUFFERS_TERRAIN
+                        #if defined GBUFFERS_TERRAIN || defined VOXY_OPAQUE
                             if (subsurfaceMode == 0) {
                                 #if defined PERPENDICULAR_TWEAKS && defined SIDE_SHADOWING
                                     offset *= 1.0 + pow2(absNdotN);
@@ -286,7 +286,7 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
                     if (shadowLength < shadowSmooth) {
                         float shadowMixer = max0(shadowLength / shadowSmooth);
 
-                        #ifdef GBUFFERS_TERRAIN
+                        #if defined GBUFFERS_TERRAIN || defined VOXY_OPAQUE
                             if (subsurfaceMode != 0) {
                                 float shadowMixerM = pow2(shadowMixer);
 

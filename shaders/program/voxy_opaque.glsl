@@ -151,7 +151,10 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
     mat = int(parameters.customId);
     if (mat == 10009) { // Leaves
         #include "/lib/materials/specificMaterials/terrain/leaves.glsl"
-    } else if (mat == 10005 || mat == 10124 || mat == 10132) { // Foliage, Grass Blocks
+    } else if (mat == 10005 || mat == 10017 || mat == 10021) { // Foliage, both halves
+        // Same flags gbuffers_terrain gives plants: sunlight passes through, no facing shade
+        subsurfaceMode = 1, noSmoothLighting = true, noDirectionalShading = true;
+    } else if (mat == 10124 || mat == 10132) { // Grass Blocks
         smoothnessG = pow2(color.g) * 0.85;
     } else if (mat == 10068) { // Lava
         #ifdef IPBR
