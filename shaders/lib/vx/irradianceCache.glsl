@@ -4,7 +4,10 @@ bool isInRange(vec3 vxPos) {
     return all(greaterThan(vxPos, -0.5*voxelVolumeSize)) && all(lessThan(vxPos, 0.5*voxelVolumeSize));
 }
 
+// Voxy declares every sampler listed in voxy.json in its own block, at global scope
+#ifndef VOXY_PATCH
 uniform sampler3D irradianceCache;
+#endif
 
 vec3 readIrradianceCache(vec3 vxPos, vec3 normal) {
     if (!isInRange(vxPos)) return vec3(0);

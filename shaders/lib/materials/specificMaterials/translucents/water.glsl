@@ -205,6 +205,9 @@
             // Water Alpha //
             #ifdef GBUFFERS_WATER
                 float depthT = texelFetch(depthtex1, texelCoord, 0).r;
+            #elif defined VOXY_TRANSLUCENT
+                // Untransformed program: voxy's opaque LOD depth, raw and reversed
+                float depthT = 1.0 - texelFetch(vxDepthTexOpaque, texelCoord, 0).r;
             #elif defined DH_WATER
                 float depthT = texelFetch(dhDepthTex1, texelCoord, 0).r;
             #endif
@@ -223,7 +226,9 @@
                 color.a = 0.98;
             #endif
 
-            #ifdef DISTANT_HORIZONS
+            // Voxy discards its LODs inside every vanilla section Sodium renders, so no LOD water lies
+            // under this band; fading here shows the LOD sea floor. The handoff is the section edge.
+            #if defined DISTANT_HORIZONS && !defined VOXY_AS_DH
                 if (depthT == 1.0) color.a *= smoothstep(far, far * 0.9, lViewPos);
             #endif
 
@@ -312,7 +317,8 @@
 
     color.a = mix(color.a, 1.0, fresnel4);
 
-    #ifdef GBUFFERS_WATER
+    // Voxy's water LODs take the highlight too; DH water stays matte as upstream ships it
+    #if defined GBUFFERS_WATER || defined VOXY_TRANSLUCENT
         #if WATER_STYLE == 3 || WATER_STYLE == 2 && SUN_MOON_STYLE >= 2
             smoothnessG = 1.0;
 

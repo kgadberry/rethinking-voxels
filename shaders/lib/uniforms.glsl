@@ -13,6 +13,9 @@
 
 ---------------------------------------------------------------------------------------------*/
 
+// Voxy declares every uniform listed in voxy.json itself, in its own block, so the LOD patches
+// must not declare them a second time. Iris images are not bindable there at all.
+#ifndef VOXY_PATCH
 uniform bool firstPersonCamera;
 
 uniform int blockEntityId;
@@ -120,8 +123,11 @@ uniform sampler2DShadow shadowtex1;
 #ifdef DISTANT_HORIZONS
     uniform int dhRenderDistance;
 
-    uniform mat4 dhProjection;
-    uniform mat4 dhProjectionInverse;
+    // voxyAsDh.glsl replaces these two with forward copies of voxy's reversed projection.
+    #ifndef VOXY_FORWARD_PROJ
+        uniform mat4 dhProjection;
+        uniform mat4 dhProjectionInverse;
+    #endif
     
     uniform sampler2D dhDepthTex;
     uniform sampler2D dhDepthTex1;
@@ -134,6 +140,7 @@ uniform sampler2DShadow shadowtex1;
 #ifdef PUDDLE_VOXELIZATION
     uniform usampler2D puddle_sampler;
 #endif
+#endif
 
 /*-----------------------------------------------------------------------------
   ___ _   _ ___ _____ ___  __  __   _   _ _  _ ___ ___ ___  ___ __  __ ___
@@ -143,6 +150,8 @@ uniform sampler2DShadow shadowtex1;
 
 -----------------------------------------------------------------------------*/
 
+// Same rule: voxy feeds a custom uniform only when voxy.json lists it, so the patches request theirs.
+#ifndef VOXY_PATCH
 uniform float framemod8;
 uniform float isEyeInCave;
 uniform float inDry;
@@ -160,3 +169,4 @@ uniform float inNetherWastes;
 uniform float inSoulValley;
 uniform float inWarpedForest;
 uniform float inPaleGarden;
+#endif

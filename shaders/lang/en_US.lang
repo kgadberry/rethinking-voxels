@@ -1141,6 +1141,14 @@ option.XLIGHT_B=Blocklight Blue Multiplier
 
 option.XLIGHT_I=Blocklight Intensity
 
+option.VOXY_DEBUG=Voxy LOD Debug
+value.VOXY_DEBUG.0=Off
+value.VOXY_DEBUG.1=Flat Magenta
+value.VOXY_DEBUG.2=Albedo Only
+value.VOXY_DEBUG.3=No Distance Fade
+value.VOXY_DEBUG.4=Voxy Depth Coverage
+value.VOXY_DEBUG.5=Raw Gbuffer Colour
+option.VOXY_DEBUG.comment=Diagnostic for Voxy LOD terrain. §eFlat Magenta§r proves the LOD draw reaches the screen, §eAlbedo Only§r skips all lighting, §eNo Distance Fade§r keeps the near-LOD dither cull from discarding fragments.
 option.VX_VOL_SIZE=Voxel Volume Size
 value.VX_VOL_SIZE.0=96x64x96 Blocks
 value.VX_VOL_SIZE.1=128x96x128 Blocks

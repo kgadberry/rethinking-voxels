@@ -29,6 +29,7 @@
     #endif
 
     #define SDF_UPDATE_INTERVAL 2 //[0 1 2 3 4 5 6 8 10 13 16 20]
+    #define VOXY_DEBUG 0 //[0 1 2 3 4 5]
     #define PER_PIXEL_LIGHT
     #define LONGER_LIGHT_LISTS
     #ifndef PER_PIXEL_LIGHT
@@ -672,6 +673,8 @@
     #if defined IS_IRIS && !defined IRIS_HAS_TRANSLUCENCY_SORTING
         #undef FANCY_GLASS
     #endif
+
+    #include "/lib/vx/voxyAsDh.glsl"
 
     #ifdef DISTANT_HORIZONS
         #undef DISTANT_LIGHT_BOKEH

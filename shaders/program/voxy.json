@@ -1,0 +1,69 @@
+{
+    "version": 1,
+
+    // Voxy keeps its LOD depth in vxDepthTexOpaque instead of the vanilla depth buffer, so this
+    // program is fully forward lit and writes finished colour, exactly like dh_terrain.
+    "excludeLodsFromVanillaDepth": true,
+    "opaqueDrawBuffers": [0],
+    "translucentDrawBuffers": [0],
+    // Voxy only applies this before its translucent draw, which blends into colortex0 the way
+    // dh_water does (blend.dh_water in shaders.properties).
+    "blending": {-1: "SRC_ALPHA ONE_MINUS_SRC_ALPHA ONE ONE_MINUS_SRC_ALPHA"},
+
+    // Everything the pack would otherwise declare in /lib/uniforms.glsl, which is switched off for
+    // this program because voxy declares the requested names itself in its own uniform block.
+    "uniforms": [
+        "gbufferModelView", "gbufferModelViewInverse",
+        "gbufferPreviousModelView", "gbufferPreviousProjection",
+        "shadowModelView", "shadowModelViewInverse",
+        "shadowProjection", "shadowProjectionInverse",
+
+        // Voxy's own projection, aliased onto the gbuffer names in voxy_opaque.glsl
+        "vxProj", "vxProjInv",
+
+        "cameraPosition", "cameraPositionFract", "cameraPositionInt",
+        "previousCameraPosition", "previousCameraPositionFract", "previousCameraPositionInt",
+
+        "near", "far", "viewWidth", "viewHeight", "aspectRatio",
+        "frameCounter", "frameTime", "frameTimeCounter",
+        "sunAngle", "worldTime", "worldDay", "moonPhase",
+        "rainStrength", "wetness",
+        "isEyeInWater", "eyeAltitude", "eyeBrightness", "screenBrightness",
+        "blindness", "darknessFactor", "darknessLightFactor", "nightVision", "playerMood",
+        "fogColor", "skyColor", "relativeEyePosition",
+        "entityId", "blockEntityId", "currentRenderedItemId",
+        "heldItemId", "heldItemId2", "heldBlockLightValue", "heldBlockLightValue2",
+        "entityColor", "lightningBoltPosition", "renderStage", "firstPersonCamera",
+
+        // The pack's own custom uniforms (shaders.properties) that the lighting and water chains
+        // read; voxy feeds a custom uniform only when it is listed here
+        "rainFactor", "inDry", "inSnowy",
+        "inBasaltDeltas", "inCrimsonForest", "inNetherWastes", "inSoulValley", "inWarpedForest"
+        // Do not add atlasSize/gtextureSize/blendFunc here: Iris registers those on its dynamic
+        // path, where voxy's uniform holder implements only uniform1i/1f/3f and throws otherwise.
+    ],
+
+    // Iris images are not bindable in a voxy patch, which is the other reason this program builds
+    // as DH_TERRAIN: that switches off the voxel_sampler colored-lighting path entirely.
+    "samplers": {
+        "noisetex": "sampler2D",
+        "shadowtex0": "sampler2DShadow",
+        "shadowtex1": "sampler2DShadow",
+        "shadowcolor0": "sampler2D",
+        "colortex8": "sampler2D",
+        "colortex12": "sampler2D",
+        "colortex14": "sampler2D",
+        // voxy_translucent.glsl: water normals (gaux4), mirrored reflections, and the opaque LOD
+        // depth behind the water, which is also what its reflections test against
+        "colortex7": "sampler2D",
+        "colortex15": "sampler2D",
+        "vxDepthTexOpaque": "sampler2D",
+        // interactive water (on whenever Iris reports IRIS_FEATURE_HIGHER_SHADOWCOLOR)
+        "shadowcolor2": "sampler2D",
+        "shadowcolor3": "sampler2D",
+        "colortex9": "sampler2D",
+        // mainLighting.glsl declares this itself, so leaving it unrequested gave it no
+        // layout(binding) and it aliased voxy's 2D atlas at unit 0 -> invalid program texture usage
+        "irradianceCache": "sampler3D"
+    }
+}

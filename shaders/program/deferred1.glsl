@@ -491,6 +491,14 @@ void main() {
         if (clouds.a < 0.5) DoDarkOutline(color, skyFade, z0, dither);
     #endif
 
+    // Voxy LOD diagnostics: 4 shows where voxy's LOD depth says geometry exists, 5 shows the raw
+    // gbuffer colour voxy wrote, both overriding only colortex0 so later passes stay well-formed
+    #if VOXY_DEBUG == 4 && defined DISTANT_HORIZONS
+        color = texelFetch(dhDepthTex, texelCoord, 0).r < 1.0 ? vec3(0.0, 1.0, 0.0) : vec3(0.02);
+    #elif VOXY_DEBUG == 5
+        color = texelFetch(colortex0, texelCoord, 0).rgb;
+    #endif
+
     /*RENDERTARGETS:0,15,4,8*/
     gl_FragData[0] = vec4(color, 1.0);
     gl_FragData[1] = vec4(waterRefColor, 1.0 - skyFade);

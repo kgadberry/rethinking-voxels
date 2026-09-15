@@ -153,7 +153,12 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
                 vec2 edgeFactor = pow2(pow2(pow2(screenPosRM / rEdge)));
                 screenPosR.y += (dither - 0.5) * (0.03 * (edgeFactor.x + edgeFactor.y) + 0.004);
 
-                screenPosR.z = texture2D(depthtex1, screenPosR.xy).x;
+                #ifdef VOXY_TRANSLUCENT
+                    // Untransformed program: raw reversed depth, and only LOD depth fits the LOD projection
+                    screenPosR.z = 1.0 - texture2D(vxDepthTexOpaque, screenPosR.xy).x;
+                #else
+                    screenPosR.z = texture2D(depthtex1, screenPosR.xy).x;
+                #endif
                 vec3 viewPosR = ScreenToView(screenPosR);
                 if (lViewPos <= 2.0 + length(viewPosR)) {
                     reflection = texture2D(colortex15, screenPosR.xy);

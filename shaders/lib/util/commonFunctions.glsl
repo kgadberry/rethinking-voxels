@@ -3,6 +3,10 @@
         vec2 lmCoord = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
         return clamp((lmCoord - 0.03125) * 1.06667, 0.0, 1.0);
     }
+#endif
+
+// GetSunVector reads nothing but uniforms, so the fragment-only voxy patches can use it as well
+#if defined VERTEX_SHADER || defined VOXY_PATCH
     vec3 GetSunVector() {
         const vec2 sunRotationData = vec2(cos(sunPathRotation * 0.01745329251994), -sin(sunPathRotation * 0.01745329251994));
         #ifdef OVERWORLD
