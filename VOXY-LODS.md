@@ -146,15 +146,17 @@ it on, and it can sit unnoticed in a saved settings file.
 
 ## Compile sweep
 
-Assemble every program the way Iris does (world defines, `IRIS_VERSION`, the `IRIS_FEATURE_*`
-flags, `IRIS_TAG_SUPPORT`) and the six patch variants the way voxy's pipeline does, apply the
-live settings file, and run glslangValidator. The baseline is 212 pass and 29 known harness gaps:
+`tools/sweep/sweep.sh` assembles every program the way Iris does (world defines,
+`IRIS_VERSION`, the `IRIS_FEATURE_*` flags, `IRIS_TAG_SUPPORT`) and the six patch variants the
+way voxy's pipeline does, applies an Iris settings file, and runs glslangValidator. It needs
+`glslangValidator` on the path (`nix-shell -p glslang`) and takes `SWEEP_OPTS` (the profile's
+`<pack>.zip.txt`), `VOXY_JAR` (voxy's shader sources are extracted from it; without it the patch
+variants are skipped), `SWEEP_OUT` and `SWEEP_TAG`. The baseline is 212 pass and 29 known gaps:
 `world*_dh_terrain_{fsh,vsh}`, `world*_dh_water_{fsh,vsh}`, `world*_gbuffers_terrain_fsh`,
 `world*_gbuffers_line_vsh`, `world*_shadow_{fsh,vsh}`, `world*_deferred1_csh`,
 `world0_gbuffers_skytextured_fsh`, `world0_shadowcomp1_b_csh`. Because the sweep reads the live
 settings, the baseline moves when options change in-game, and branches the live options never
-select (IPBR lava, unbound clouds) need a second run with an edited option file. The scripts are
-kept outside the repo.
+select (IPBR lava, unbound clouds) need a second run with an edited option file.
 
 ## Open items
 
