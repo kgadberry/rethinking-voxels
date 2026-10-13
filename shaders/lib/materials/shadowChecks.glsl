@@ -68,6 +68,7 @@ bool isEmissive(int mat) {
         mat == 10412 || // glowstone
         mat == 10448 || // sea lantern
         mat == 10452 || // magma block
+        mat == 10110 || // void-infused deepslate (player-portals)
         mat == 10476 || // crying obsidian
         mat == 10496 || // torch
         mat == 10500 || // end rod
@@ -300,6 +301,9 @@ vec3 getLightCol(int mat) {
             #ifdef HARDCODED_MAGMA_COL
             lightcol = vec3(MAGMA_COL_R, MAGMA_COL_G, MAGMA_COL_B);
             #endif
+            break;
+        case 10110: // void-infused deepslate (player-portals)
+            lightcol = vec3(SOULTORCH_COL_R, SOULTORCH_COL_G, SOULTORCH_COL_B);
             break;
         case 10476: // crying obsidian
             #ifdef HARDCODED_CRYING_COL
@@ -673,6 +677,9 @@ int getLightLevel(int mat) {
             break;
         case 50052: // magma cube
             lightlevel = CUBE_BRIGHTNESS_MAGMA;
+            break;
+        case 10110: // void-infused deepslate (player-portals): light 7, three under crying obsidian's
+            lightlevel = BRIGHTNESS_CRYING - 3;
             break;
         case 10476: // crying obsidian
             lightlevel = BRIGHTNESS_CRYING;

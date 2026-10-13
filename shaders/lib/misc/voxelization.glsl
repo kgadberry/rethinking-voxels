@@ -39,6 +39,7 @@
                         if (mat == 10068) return  13; // Lava
                         if (mat == 10072) return   5; // Fire
                         if (mat == 10076) return  27; // Soul Fire
+                        if (mat == 10110) return  29; // Void-Infused Deepslate (player-portals)
                         #ifdef DO_IPBR_LIGHTS
                         if (mat == 10216) return  62; // Crimson Stem, Crimson Hyphae
                         if (mat == 10224) return  63; // Warped Stem, Warped Hyphae
