@@ -45,7 +45,12 @@ void DoDarkOutline(inout vec3 color, inout float skyFade, float z0, float dither
         float VdotS = dot(nViewPos, sunVec);
 
         vec3 newColor = vec3(0.0);
-        DoFog(newColor, skyFade, lViewPos, playerPos, VdotU, VdotS, dither);
+        // The pixel's skyFade arrives already fogged (1.0 on sky), and DoFog combines with what it
+        // is given, so fog the outline from zero and let its fog replace the pixel's, as it always
+        // has whenever some fog applied
+        float outlineSkyFade = 0.0;
+        DoFog(newColor, outlineSkyFade, lViewPos, playerPos, VdotU, VdotS, dither);
+        if (outlineSkyFade > 0.0) skyFade = outlineSkyFade;
 
         color = mix(color, newColor, 1.0 - outline * 1.1);
     }
