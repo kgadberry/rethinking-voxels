@@ -631,9 +631,9 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
     #endif
 
     #if defined BLOCKLIGHT_HIGHLIGHT && defined PER_PIXEL_LIGHT && !defined GBUFFERS_WATER && !defined VOXY_TRANSLUCENT
-        #ifdef GBUFFERS_HAND
-            foundValidLoc = true;
-        #endif
+        // Only a matched coord holds this surface's highlight. After a failed search the coord is
+        // the last random probe, up to 27 px away on other geometry, so nothing reads it, the
+        // hand included.
         vec3 blocklightHighlight = foundValidLoc ? 4 * texelFetch(colortex14, ivec2(blocklightReadCoord), 0).rgb : vec3(0.0);
         #ifdef CUSTOM_PBR
             #if RP_MODE == 2 // seusPBR
