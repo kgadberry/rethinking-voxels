@@ -373,6 +373,9 @@ void main() {
         uint traceNum = 0;
         uint thisLightIndex = 0;
         float accumLight = 0.0;
+        #ifdef BLOCKLIGHT_HIGHLIGHT
+            float accumSpecular = 0.0;
+        #endif
         for (; thisLightIndex < MAX_LIGHT_COUNT; thisLightIndex++) {
             if (thisLightIndex >= lightCount) break;
             float lightSize = 0.5;
@@ -387,9 +390,26 @@ void main() {
                 lightBrightness *= lightBrightness;
                 // an unoccluded trace is the most this light could ever add, so skip it
                 // when even that stays under the cutoff. The budget only counts traces.
-                float lightBound = length(lightCols[thisLightIndex]) * ndotl0 *
+                float lightPeak = length(lightCols[thisLightIndex]) *
                     distanceFalloff(dirLen / (thisTraceLen * LIGHT_TRACE_LENGTH)) * lightBrightness;
-                if (lightBound < LIGHT_CUTOFF * (0.01 * accumLight + 0.0001)) continue;
+                #ifdef BLOCKLIGHT_HIGHLIGHT
+                    // The trace also adds a highlight, which can dominate at a grazing angle where
+                    // ndotl0 is tiny, so it gets its own bound against its own running total (the
+                    // two sums are written and compressed separately). It needs no trace result.
+                    float specularBrightness = GGX(
+                        normalDepthData.xyz,
+                        normalize(playerPos.xyz - gbufferModelViewInverse[3].xyz),
+                        normalize(lightPos - vxPos),
+                        ndotl0,
+                        smoothness
+                    );
+                    float specularBound = isnan(specularBrightness) ? 0.0 :
+                        lightPeak * lightBrightness * specularBrightness;
+                    if (lightPeak * ndotl0 < LIGHT_CUTOFF * (0.01 * accumLight + 0.0001) &&
+                        specularBound < LIGHT_CUTOFF * (0.01 * accumSpecular + 0.0001)) continue;
+                #else
+                    if (lightPeak * ndotl0 < LIGHT_CUTOFF * (0.01 * accumLight + 0.0001)) continue;
+                #endif
                 lightSize = clamp(lightSize, 0.01, getDistanceField(lightPos));
                 vec4 rayHit1 = coneTrace(biasedVxPos, (1.0 - 0.1 / (dirLen + 0.1)) * dir, lightSize * LIGHTSOURCE_SIZE_MULT / dirLen, dither);
                 if (rayHit1.w > 0.01) {
@@ -419,16 +439,9 @@ void main() {
                         writeColor += thisBaseCol * ndotl0;
                         accumLight = length(writeColor);
                         #ifdef BLOCKLIGHT_HIGHLIGHT
-
-                            float specularBrightness = GGX(
-                                normalDepthData.xyz,
-                                normalize(playerPos.xyz - gbufferModelViewInverse[3].xyz),
-                                normalize(lightPos - vxPos),
-                                ndotl0,
-                                smoothness
-                            );
                             if (!isnan(specularBrightness)) {
                                 writeSpecular += thisBaseCol * lightBrightness * specularBrightness;
+                                accumSpecular = length(writeSpecular);
                             }
                         #endif
                         int thisWeight = int(10000.5 * length(thisBaseCol) * ndotl0);
