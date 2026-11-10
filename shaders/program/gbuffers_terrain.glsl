@@ -449,7 +449,10 @@ void main() {
             mat = 10017;
     }
 
-    if (mat == 0 && at_midBlock.w > 0.3) {
+    // at_midBlock.w is the block's light emission, 0 to 15. A mod that draws through this
+    // program without the attribute (Grassier Grass) leaves it at the GL default, which
+    // Iris scales to 127; that is no emitter.
+    if (mat == 0 && at_midBlock.w > 0.3 && at_midBlock.w < 15.5) {
         mat = 10028;
     }
 
