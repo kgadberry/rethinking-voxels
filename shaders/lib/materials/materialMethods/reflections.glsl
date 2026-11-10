@@ -27,10 +27,12 @@ vec3 nvec3(vec4 pos) {
 vec3 refPos = vec3(0.0);
 
 #ifdef VOXY_TRANSLUCENT
-    // Raw reversed LOD depth in an untransformed program. Both possible clear values land outside
-    // (0, 1), and 0.0 back means empty, so an LOD texel with no geometry can never read as a hit.
+    // Voxy's untransformed LOD depth, in the projection's convention. A texel with no LOD geometry
+    // holds voxy's far depth (its clear, and what its depth fix-up writes over vanilla terrain; near
+    // without that fix-up), which reads 1.0 (0.0) here in either convention, so it can never read as
+    // a hit. 0.0 back means empty.
     float GetLodOpaqueDepth(vec2 coord) {
-        float depth = 1.0 - texture2D(vxDepthTexOpaque, coord).x;
+        float depth = VoxyOpaqueDepth(texture2D(vxDepthTexOpaque, coord).x);
         if (depth <= 0.0 || depth >= 1.0) return 0.0;
         return -ScreenToView(vec3(coord, depth)).z;
     }
@@ -210,7 +212,7 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
 
                         // Seagrass and kelp are baked as cubes filling the water cell, so their faces
                         // clear the fluid top by an eighth of a block; below that a hit is water column.
-                        float hitDepth = 1.0 - texture2D(vxDepthTexOpaque, screenPosR).x;
+                        float hitDepth = VoxyOpaqueDepth(texture2D(vxDepthTexOpaque, screenPosR).x);
                         float hitRise = ViewToPlayer(ScreenToView(vec3(screenPosR, hitDepth))).y - playerPos.y;
 
                         if (hitRise > max(0.25, 0.002 * lViewPos)) {

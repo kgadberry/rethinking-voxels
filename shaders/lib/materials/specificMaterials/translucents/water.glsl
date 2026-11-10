@@ -206,8 +206,8 @@
             #ifdef GBUFFERS_WATER
                 float depthT = texelFetch(depthtex1, texelCoord, 0).r;
             #elif defined VOXY_TRANSLUCENT
-                // Untransformed program: voxy's opaque LOD depth, raw and reversed
-                float depthT = 1.0 - texelFetch(vxDepthTexOpaque, texelCoord, 0).r;
+                // Untransformed program: voxy's opaque LOD depth, in the projection's convention
+                float depthT = VoxyOpaqueDepth(texelFetch(vxDepthTexOpaque, texelCoord, 0).r);
             #elif defined DH_WATER
                 float depthT = texelFetch(dhDepthTex1, texelCoord, 0).r;
             #endif
