@@ -162,12 +162,15 @@ Inputs: `SWEEP_OPTS` (the profile's `<pack>.zip.txt`), `VOXY_JAR` (voxy's shader
 extracted from it; without it the patch variants are skipped), `SWEEP_OUT`, `SWEEP_TAG`,
 `SWEEP_LODS` and `SWEEP_IRIS` (space separated overrides of the matrix), `SWEEP_ONLY` (extended
 regex on result names such as `world0_gbuffers_water_fsh` or `voxy_world0_translucent`) and
-`SWEEP_BASELINE` (directory of result files from an earlier run with the same tag).
+`SWEEP_BASELINE` (directory of result files from an earlier run with the same tag and the same
+`SWEEP_OPTS`; a config absent there counts every FAIL as new).
 
 About 26 programs per config fail only because the harness does not emulate what Iris injects
-(`DH_BLOCK_LEAVES`, `MC_RENDER_STAGE_*`, `projectionMatrix`, `gl_Fog`, `shadow2D`,
-`dhMaterialId`, `dhProjection` in the dh programs), so the raw FAIL count is no regression
-signal. Take a baseline from the known-good tree and rerun with `SWEEP_BASELINE`: it prints
+(`MC_RENDER_STAGE_*`, `projectionMatrix`, `gl_Fog`, `shadow2D`, `dhMaterialId` and
+`dhProjection` in the dh programs), so the raw FAIL count is no regression
+signal. The one real failure is `voxy_world0_translucent` in both `patch-*` configs: the voxy
+patch leaves out `eyeBrightnessM` (`lib/uniforms.glsl` hides it under `VOXY_PATCH`, `voxy.json` does
+not list it) but `CAVE_FOG`'s `GetCaveFactor` reads it via `sky.glsl`. Take a baseline from the known-good tree and rerun with `SWEEP_BASELINE`: it prints
 `NEW FAIL <config> <name>` for every program that fails now but passed (or was absent) there,
 and exits non-zero if there is any. Because the sweep reads the live settings, the baseline
 moves when options change in-game, and branches the live options never select (IPBR lava,
