@@ -175,11 +175,23 @@ void DoOceanBlockTweaks(inout float smoothnessD) {
 
 //Program//
 void main() {
-    #if ANISOTROPIC_FILTER == 0
-        vec4 color = texture2D(tex, texCoord);
-    #else
-        vec4 color = textureAF(tex, texCoord);
-    #endif
+    // Geometry without Iris's extended attributes (mat -1, see the vertex stage)
+    bool noIrisAttributes = mat == -1;
+
+    vec4 color;
+    if (noIrisAttributes) {
+        // No sprite bounds for textureAF. Grassier Grass also gives each SEGMENTED blade quad
+        // a single UV, often on a texel edge, and interpolation jitters it by an ulp, so a
+        // plain nearest lookup flips texels from pixel to pixel; rounding to 1/64 texel holds it.
+        vec2 texSizeQ = vec2(textureSize(tex, 0)) * 64.0;
+        color = textureGrad(tex, round(texCoord * texSizeQ) / texSizeQ, dFdx(texCoord), dFdy(texCoord));
+    } else {
+        #if ANISOTROPIC_FILTER == 0
+            color = texture2D(tex, texCoord);
+        #else
+            color = textureAF(tex, texCoord);
+        #endif
+    }
 
     float smoothnessD = 0.0, materialMask = 0.0, skyLightFactor = 0.0;
 
@@ -217,6 +229,9 @@ void main() {
     vec3 normalM = normal, geoNormal = normal, shadowMult = vec3(1.0);
     vec3 worldGeoNormal = normalize(ViewToPlayer(geoNormal * 10000.0));
 
+    // Without a tangent or a sprite's bounds: no normal or material maps, puddles or coating
+    if (noIrisAttributes) noGeneratedNormals = true, noPuddles = 1.0;
+
     #ifdef IPBR
         vec3 maRecolor = vec3(0.0);
         #include "/lib/materials/materialHandling/terrainMaterials.glsl"
@@ -230,7 +245,7 @@ void main() {
         #endif
 
         #ifdef COATED_TEXTURES
-            CoatTextures(color.rgb, noiseFactor, playerPos, doTileRandomisation);
+            if (!noIrisAttributes) CoatTextures(color.rgb, noiseFactor, playerPos, doTileRandomisation);
         #endif
 
         #if IPBR_EMISSIVE_MODE != 1
@@ -238,7 +253,9 @@ void main() {
         #endif
     #else
         #ifdef CUSTOM_PBR
-            GetCustomMaterials(color, normalM, lmCoordM, NdotU, shadowMult, smoothnessG, smoothnessD, highlightMult, emission, materialMask, viewPos, lViewPos);
+            if (!noIrisAttributes) {
+                GetCustomMaterials(color, normalM, lmCoordM, NdotU, shadowMult, smoothnessG, smoothnessD, highlightMult, emission, materialMask, viewPos, lViewPos);
+            }
         #endif
 
         if (mat == 10001) { // No directional shading
@@ -449,10 +466,14 @@ void main() {
             mat = 10017;
     }
 
-    // at_midBlock.w is the block's light emission, 0 to 15. A mod that draws through this
-    // program without the attribute (Grassier Grass) leaves it at the GL default, which
-    // Iris scales to 127; that is no emitter.
-    if (mat == 0 && at_midBlock.w > 0.3 && at_midBlock.w < 15.5) {
+    // Iris writes the block's light emission, -1 to 15, into at_midBlock.w of every terrain
+    // vertex. A mod mesh drawn through this program without Iris's extended attributes
+    // (Grassier Grass blades and the plants it redraws) reads the GL default (0,0,0,1) for
+    // all four instead, so w arrives as 127 and the tangent and mid texcoord are zero. Tag
+    // it -1, so the fragment stage keeps it off what needs a tangent or a sprite's bounds.
+    if (at_midBlock.w > 15.5) {
+        mat = -1;
+    } else if (mat == 0 && at_midBlock.w > 0.3) {
         mat = 10028;
     }
 

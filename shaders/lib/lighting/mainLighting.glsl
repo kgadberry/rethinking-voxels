@@ -49,6 +49,13 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
                 bool centerShadowBias, int subsurfaceMode, float smoothnessG, float materialMask, float highlightMult, float emission) {
     #ifdef DO_PIXELATION_EFFECTS
         vec2 pixelationOffset = ComputeTexelOffset(tex, texCoord);
+        #ifdef GBUFFERS_TERRAIN
+            // Meshes without Iris's extended attributes (see gbuffers_terrain) have no texel grid
+            // to snap to. A Grassier Grass blade quad has a single UV whose derivatives are
+            // rounding noise, so this offset comes out NaN in about half its pixels, and
+            // TexelSnap's clamp turns that into a whole block of shift and a full lightmap.
+            if (mat == -1) pixelationOffset = vec2(0.0);
+        #endif
 
         #ifdef PIXELATED_SHADOWS
             vec3 playerPosPixelated = TexelSnap(playerPos, pixelationOffset);
