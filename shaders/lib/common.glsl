@@ -709,6 +709,8 @@
     #endif
     #ifdef PIXELATED_BLOCKLIGHT
     #endif
+    #ifdef LOD_ICE_EDGE_FIX
+    #endif
 
 //Very Common Stuff//
     #include "/lib/uniforms.glsl"
