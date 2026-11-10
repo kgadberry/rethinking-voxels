@@ -123,6 +123,22 @@ vec4 GetVolumetricLight(inout vec3 color, inout float vlFactor, vec3 translucent
         if (z1 == 1.0) depth1 = 1000.0;
     #endif
 
+    #ifdef DISTANT_HORIZONS
+        // Vanilla depth is the far plane on every LOD or DH texel, so these marched as far as the
+        // sky. Above water the distance scaling at the end of this function reads their own
+        // distance; under water it does not run, and the light gathered out to the sky (past the
+        // shadow map, unshadowed) made LOD terrain as bright as open water and far brighter than
+        // loaded terrain at the same distance. March them as far as a loaded block there would.
+        if (isEyeInWater != 0 && z1 == 1.0) {
+            float z1DH = texelFetch(dhDepthTex1, texelCoord, 0).r;
+            if (z1DH < 1.0) {
+                vec4 viewPos1DH = dhProjectionInverse * (vec4(texCoord, z1DH, 1.0) * 2.0 - 1.0);
+                vec4 clipPos1DH = gbufferProjection * vec4(viewPos1DH.xyz / viewPos1DH.w, 1.0);
+                depth1 = GetDepth(min(clipPos1DH.z / clipPos1DH.w * 0.5 + 0.5, 1.0));
+            }
+        }
+    #endif
+
     // Fast but inaccurate perspective distortion approximation
     maxDist *= viewFactor;
     distMult *= viewFactor;
