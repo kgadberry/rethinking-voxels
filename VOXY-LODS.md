@@ -54,8 +54,19 @@ height on every LOD level; see "voxy-revz"). Static findings about the pack itse
   branch; loaded water draws after deferred1 and writes `translucentMult` for composite.
   colortex15 is never cleared, so during the terrain pass it holds the previous frame's deferred1
   output, water reflections included.
-- Vanilla depth reads 1.0 on every LOD pixel. Any "is this sky" test must also consult the LOD
-  depth; composite's underwater path does, which is what keeps LODs visible from under water.
+- Vanilla depth reads 1.0 on every LOD pixel, so any "is this sky" test must also consult the
+  LOD depth. Composite's underwater path does (`trueSky0`/`trueSky1`), and so does the
+  light-shaft march: `GetVolumetricLight` takes its length from `GetDepth(z1)`, which is `far`,
+  the sky's march, on an LOD texel. Under water, where the distance scaling at the end of that
+  function does not run, it now marches LOD and DH texels as far as a loaded block at the same
+  position would. Before that, LOD terrain under water gathered the sky's shaft light, including
+  unshadowed samples past the shadow map, and could not be told from open water, while loaded
+  chunks popped in darker.
+- Voxy does not draw LODs inside loaded sections. `quads.frag` discards any LOD fragment in
+  front of its depth-bounding buffer, which `BoundRenderer` fills with the far faces of every
+  built section Sodium visits, and `initDepthStencil` masks every pixel that holds vanilla
+  opaque depth (the translucent pass runs with the same stencil test). The patches' fade over
+  0.5 to 0.7 of `far` therefore only matters in holes, where chunks are still loading.
 
 ## Distances
 
@@ -131,34 +142,45 @@ it on, and it can sit unnoticed in a saved settings file.
   slime, honey and portals need `translucentMult`, which the patch cannot write.
 - Voxy draws translucent quads with face culling off (`MDICSectionRenderer.renderTranslucent`)
   and turns `parameters.face` toward the camera, so the far side of a translucent block showed
-  as a second layer: under an ice sheet, its underside lit from the water voxel below. Seen
-  through loaded ice near the edge of the loaded area, where the LOD top face is not drawn, that
-  was a dark band just before the LOD ice began. The translucent patch now discards a quad seen
-  from behind (`parameters.face != getFace()`), as loaded translucent terrain is back-face
-  culled. Water keeps both sides, because vanilla's fluid renderer adds a reversed copy of its
-  faces and underwater views need it.
-- `LOD_ICE_EDGE_FIX` discards vertical loaded-ice faces past `far * 0.85` where LOD depth
-  exists (voxy or real DH). Translucent terrain is back-face culled (Sodium's terrain pipeline
-  uses `withCull(true)`, and Iris disables culling only in the shadow pass), and Sodium meshes a
-  chunk only once all 8 neighbours are loaded. So every face this discards looks toward the
-  camera, which includes genuine ice sides in the outer band; a test for faces turned away from
-  the camera would never discard anything. Which face draws the line it was made for is still to
-  be identified in game (open, see below). Until `339b72b` the discard was always on: Iris
-  registers a boolean define as an option only when some source names it on a plain `#ifdef` or
-  `#ifndef` line, and this one was referenced only through `#if defined ... &&`, so its menu slot
-  was blank. The Activate Settings block in `lib/common.glsl` now names it, which is what any new
-  option used only inside a compound `#if` needs.
+  as a second layer: under an ice sheet, its underside lit from the water voxel below, which
+  made an unbroken LOD ice sheet denser than loaded ice. The translucent patch now discards a
+  quad seen from behind (`parameters.face != getFace()`), as loaded translucent terrain is
+  back-face culled. Water keeps both sides, because vanilla's fluid renderer adds a reversed
+  copy of its faces and underwater views need it.
+- LODs are never voxelized: they lie outside every section the shadow pass draws. Inside the
+  voxel volume the irradiance cache at an LOD's position holds only light diffused out of the
+  loaded area, which came out darker than an open surface gets, so LOD ice, water and terrain
+  within the volume read darker than their loaded neighbours. `mainLighting.glsl` now gives the
+  LOD programs (`DH_TERRAIN`, `DH_WATER`) this texel's vanilla ambient as the cache value, which
+  is what `shadowcomp1` settles on for an open surface; the compression, the `GI_AMBIENT_MIN`
+  floor and the `voxelFactor` fade then run unchanged. Side faces and partly covered LOD
+  surfaces get the same stand-in rather than their own hemisphere value.
+- Loaded water at the loaded edge: a view ray that leaves the loaded area under water has an LOD
+  floor behind it, but `depthtex1` is empty there, so the water measured as bottomless and came
+  out opaque in a band just inside the edge, visible from above in shallow water. Under voxy,
+  `water.glsl` now measures to `dhDepthTex1` when vanilla depth is empty.
+- `LOD_ICE_EDGE_FIX` is gone. It discarded vertical loaded-ice faces in the outer 15 percent of
+  the render distance on the theory that a stray face of the last loaded ice block drew a line.
+  No such face exists (translucent terrain is back-face culled and Sodium meshes a chunk only
+  once all 8 neighbours are loaded), so it only cut genuine ice sides, and it made no visible
+  difference in game. A lesson from it: Iris registers a boolean define as an option only when
+  some source names it on a plain `#ifdef` or `#ifndef` line, so an option used only inside a
+  compound `#if defined ... &&` needs a line in the Activate Settings block of `lib/common.glsl`.
 - `translucentMult` is not a visible difference between loaded and LOD ice. It never multiplies
   the background colour: composite only uses it to tint light-shaft, coloured-light-fog, nether
   storm and rainbow samples behind the surface, and `gbuffers_water` fades it to 1.0 at `far`.
-  The mismatch at the handoff came from the material mode and the second layer, both above.
+  The mismatch at the handoff came from the material mode, the second layer and the cache value,
+  all above.
 - Seams between LOD sections are voxy geometry: `RenderDataFactory.acquireNeighborData` culls
   same-model translucent faces only against same-level neighbours (`world.acquire(section.lvl,
   ...)`), so every LOD-level ring keeps its internal faces, and the patch cannot tell those from
   real faces. A voxy-revz mixin that falls back to the level-above neighbour when the same-level
   one is empty (each coarse voxel duplicated 2x2 into the 32x32 face slice) closes the common
-  case; the general ring mismatch needs draw-time knowledge. The same seams and the underwater
-  LOD look reproduce with shaders off, so they are not the pack's.
+  case; the general ring mismatch needs draw-time knowledge. The same seams reproduce with
+  shaders off, so they are not the pack's. LODs also fade under water with shaders off, but for
+  a voxy-only reason: `NormalRenderPipeline` fogs them with the vanilla water fog and skips the
+  LOD blit while that fog ends inside the vanilla render distance. Under Iris, voxy has no fog
+  or eye-in-fluid logic.
 - Voxy does emit the water face under ice: ice is in the translucent layer, so it occludes
   nothing.
 
@@ -281,21 +303,20 @@ unbound clouds) need a second run with an edited option file.
 
 ## Open items
 
-- `LOD_ICE_EDGE_FIX` still discards genuine camera-facing ice sides in the outer 15 percent of
-  the render distance. The causes found for the seam it was added for are on the LOD side (the
-  material mode and the back-face layer, see "Ice and other translucents") and are fixed there,
-  and no vertical loaded face is involved, so the option is a candidate for default off and then
-  removal. One check in game with it off decides: if no line remains, remove it; if one does,
-  note whether it stays a fixed distance ahead or stays put in the world.
 - Minecraft 26.3 / voxy 0.2.20: gate the forward branch of `lib/vx/voxyProj.glsl` and
   `VoxyOpaqueDepth` on `VOXY < 3` before using the pack there, see "voxy-revz".
-- Seams between LOD sections and the underwater LOD look: voxy-side, see above.
+- Seams between LOD sections: voxy-side, see above.
+- Under water the pack fogs by the whole view distance, so LOD terrain above the surface seen
+  from below is a fog-coloured silhouette past about 50 blocks at `WATER_FOG_MULT 150`, as
+  loaded terrain would be. Above water, LOD texels still take the sky's light-shaft march when
+  `dhVlStillIntense` is high (upstream DH behaviour).
+- The block-light highlight on a held item is traced from last frame's picture and read at the
+  fragment's own pixel, so it trails the item by one frame of its on-screen motion (about 10
+  pixels at 60 fps with view bobbing). Iris exposes no previous-frame hand transform to
+  compensate with; the real fix would be a pass that traces the hand from the current frame.
 - LOD water has no refraction (composite's `DoRefraction` gates on the water material mask,
   which the patch never writes; ice and glass get none in either path), and LOD translucents
   write no `translucentMult`.
-- The GI ambient normal for LOD translucents still uses `+normalM` at full weight where loaded
-  water uses the downward half-weight hemisphere (`mainLighting.glsl`, the `#ifndef
-  GBUFFERS_WATER` branch). Untested because the irradiance cache cannot be measured offline.
 - LOD wave normals are continuous where loaded ones snap to a 1/16 block grid; sub-pixel at LOD
   range.
 - LOD light sources at emission 2.5 versus about 0.93 loaded under labPBR.
