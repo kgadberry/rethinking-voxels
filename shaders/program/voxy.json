@@ -35,9 +35,10 @@
         "heldItemId", "heldItemId2", "heldBlockLightValue", "heldBlockLightValue2",
         "entityColor", "lightningBoltPosition", "renderStage", "firstPersonCamera",
 
-        // The pack's own custom uniforms (shaders.properties) that the lighting and water chains
-        // read; voxy feeds a custom uniform only when it is listed here
-        "rainFactor", "inDry", "inSnowy",
+        // The pack's own custom uniforms (shaders.properties) that the lighting, water and sky
+        // chains can read under any option set; voxy feeds a custom uniform only when it is listed
+        // here. All are float, a type voxy's custom-uniform writer handles.
+        "rainFactor", "inDry", "inRainy", "inSnowy", "eyeBrightnessM", "maxBlindnessDarkness",
         "inBasaltDeltas", "inCrimsonForest", "inNetherWastes", "inSoulValley", "inWarpedForest"
         // Do not add atlasSize/gtextureSize/blendFunc here: Iris registers those on its dynamic
         // path, where voxy's uniform holder implements only uniform1i/1f/3f and throws otherwise.

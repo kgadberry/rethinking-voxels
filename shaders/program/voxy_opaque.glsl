@@ -48,9 +48,9 @@ vec2 lmCoordM = vec2(0.0);
 float NdotU = 1.0;
 float NdotUmax0 = 1.0;
 
-// Declared rather than requested: nothing in Iris supplies these, so they read zero here exactly
-// as they do in every other program in the pack.
-uniform float maxBlindnessDarkness;
+// Declared rather than requested: nothing in Iris supplies this, so it keeps its initializer here
+// exactly as it does in every other program in the pack. maxBlindnessDarkness is a custom uniform
+// and comes from voxy.json.
 uniform float playerSize = 1.8;
 
 // Voxy draws past the vanilla far plane with its own projection. Aliasing it onto the gbuffer
