@@ -684,7 +684,8 @@ void main() {
         correspondingBlockV = ivec3(floor(positionV.xyz + fractCamPos + at_midBlock.xyz/64) + 1000.5) - 1000 + voxelVolumeSize/2;
         matV = int(mc_Entity.x + 0.5);
         #ifdef IRIS_FEATURE_BLOCK_EMISSION_ATTRIBUTE
-            lmCoordV.x = max(lmCoordV.x, at_midBlock.w/20.0);
+            // Emission is 0 to 15; anything above is a missing attribute (GL default, scaled to 127).
+            if (at_midBlock.w < 15.5) lmCoordV.x = max(lmCoordV.x, at_midBlock.w/20.0);
         #endif
         //positionV = vec4(correspondingBlockV - voxelVolumeSize/2 - fractCamPos + 0.5 - at_midBlock.xyz/64, 1.0);
     }
