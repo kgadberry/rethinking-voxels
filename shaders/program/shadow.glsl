@@ -286,7 +286,9 @@ void main() {
     if (currentRenderedItemId > 0) localMat = currentRenderedItemId;
     // player-portals: an item rendering as 10111 is void-infused deepslate held or dropped
     // (a block item renders as its block's default state), so it lights as the block does.
+    #ifdef INFESTED_DEEPSLATE_GLOW
     if (currentRenderedItemId == 10111) localMat = 10110;
+    #endif
 
     vec3 cnormal = cross(positionV[1].xyz - positionV[0].xyz, positionV[2].xyz - positionV[0].xyz);
     float area = length(cnormal);

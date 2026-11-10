@@ -1153,6 +1153,8 @@ option.XLIGHT_I=Blocklight Intensity
 
 option.LOD_ICE_EDGE_FIX=Hide Ice Edge At LODs
 option.LOD_ICE_EDGE_FIX.comment=Hides the side faces of the outermost loaded ice blocks, which have no loaded neighbour to cull them against and so draw as a dark line over the LOD ice behind them. Only ice, only vertical faces, and only where LOD geometry is already covering the pixel.
+option.INFESTED_DEEPSLATE_GLOW=Glowing Infested Deepslate
+option.INFESTED_DEEPSLATE_GLOW.comment=Makes infested deepslate placed sideways (facing east-west) emit a teal light, as does the infested deepslate item when held or dropped. This is for servers running the player-portals mod, whose void-infused deepslate portal frame block reaches the client as sideways infested deepslate and gives off light level 7. The voxel lighting ignores vanilla light levels, so without this it would stay dark. Turn it off in vanilla worlds, where it would light real infested deepslate.
 option.VOXY_DEBUG=Voxy LOD Debug
 value.VOXY_DEBUG.0=Off
 value.VOXY_DEBUG.1=Flat Magenta
