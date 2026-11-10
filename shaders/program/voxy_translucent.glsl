@@ -129,11 +129,6 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
     vec4 colorP = vec4(parameters.sampledColour.rgb, alpha);
     vec4 color = vec4(parameters.sampledColour.rgb * parameters.tinting.rgb, alpha);
 
-    // miplevel.glsl measures sprite fractions per pixel times 16; a voxy atlas tile spans (1/768, 1/512) of uv
-    vec2 mipx = dFdx(parameters.uv) * vec2(768.0, 512.0) * 16.0;
-    vec2 mipy = dFdy(parameters.uv) * vec2(768.0, 512.0) * 16.0;
-    float miplevel = max(0.5 * log2(max(dot(mipx, mipx), dot(mipy, mipy))), 0.0);
-
     // parameters.lightMap arrives on the same [0.03125, 0.96875] range as the vanilla lightmap
     // texcoord, so it takes the same remap GetLightMapCoordinates() applies
     lmCoord = clamp((parameters.lightMap - 0.03125) * 1.06667, 0.0, 1.0);
@@ -160,6 +155,13 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
     vec3 nViewPos = normalize(viewPos);
     float VdotU = dot(nViewPos, upVec);
     float VdotS = dot(nViewPos, sunVec);
+
+    // miplevel.glsl's log2 of atlas texels per pixel at 16 texels per block, without derivatives
+    // (undefined here): a pixel spans 2 / (P[1][1] * viewHeight) radians of view ray, stretched by
+    // 1 / |N.V| along the surface's steeper screen axis, which the larger derivative picked. Voxy
+    // exposes no LOD level, so this counts world blocks, as loaded water does, not LOD voxels.
+    float pixelBlocks = 2.0 * lViewPos / (gbufferProjection[1][1] * viewHeight * max(abs(dot(normal, nViewPos)), 0.01));
+    float miplevel = max(log2(16.0 * pixelBlocks), 0.0);
 
     float dither = Bayer64(gl_FragCoord.xy);
     #ifdef TAA

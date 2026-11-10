@@ -202,7 +202,8 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
                                 #if !defined DO_PIXELATION_EFFECTS || !defined PIXELATED_SHADOWS
                                     float centerFactor = max(glColor.a, lightmapYM);
 
-                                    #if defined PERPENDICULAR_TWEAKS && SHADOW_QUALITY >= 2
+                                    // Not in the voxy patches, where derivatives are undefined
+                                    #if defined PERPENDICULAR_TWEAKS && SHADOW_QUALITY >= 2 && !defined VOXY_PATCH
                                         // Fake Variable Penumbra Shadows
                                         // Making centerFactor also work in daylight if AO gradient is facing towards sun
                                         if (NdotU > 0.99) {
