@@ -35,10 +35,11 @@
 
         color = mix(color, fogColorM, fog);
 
-        #ifdef GBUFFERS_WATER
-            fog *= 1.0 - isEyeInWater;
+        // Forward translucents cut their alpha by skyFade to dissolve into the sky at the render
+        // edge; haze there stays a colour mix, or the hazed background would show through twice
+        #if !defined GBUFFERS_WATER && !defined GBUFFERS_ENTITIES_TRANSLUCENT && !defined GBUFFERS_BEACONBEAM && !defined DH_WATER
+            skyFade = 1.0 - (1.0 - skyFade) * (1.0 - fog);
         #endif
-        skyFade = 1.0 - (1.0 - skyFade) * (1.0 - fog);
     }
 #endif
 
