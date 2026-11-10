@@ -522,7 +522,13 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
         }
     #endif
     #ifdef GI
-        #ifndef GBUFFERS_WATER
+        #if defined DH_TERRAIN || defined DH_WATER
+            // LODs lie outside every section the shadow pass draws, so nothing at their position is
+            // voxelized and the cache there holds only light diffused out of the loaded area. Stand in
+            // what shadowcomp1 settles on for an open surface (each sky sample capped at 2 * ambientColor
+            // at weight 2, so ambientColor): this texel's vanilla ambient.
+            vec3 giLighting = 1.8 * ambientColorM * ambientMult * GI_STRENGTH * 0.5;
+        #elif !defined GBUFFERS_WATER
             vec3 giLighting = 1.8 * readIrradianceCache(vxPos, mat3(gbufferModelViewInverse) * normalM) * GI_STRENGTH * 0.5;
         #else
             vec3 giLighting = 1.8 * readIrradianceCache(vxPos, -0.5 * mat3(gbufferModelViewInverse) * normalM) * GI_STRENGTH * 0.5;
