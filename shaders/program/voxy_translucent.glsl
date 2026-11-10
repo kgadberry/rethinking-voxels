@@ -185,11 +185,17 @@ void voxy_emitFragment(VoxyFragmentParameters parameters) {
     if (mat == 32000) { // Water
         #include "/lib/materials/specificMaterials/translucents/water.glsl"
     } else if (mat == 32004) { // Ice
-        // translucentMaterials.glsl's own constants. Without them reflectMult stays zero, so the
-        // shared reflection block below gave LOD ice neither a sky reflection nor a highlight.
-        smoothnessG = pow2(color.g) * color.g;
-        highlightMult = pow2(min1(pow2(color.g) * 1.5)) * 3.5;
-        reflectMult = 0.7;
+        #ifdef IPBR
+            // translucentMaterials.glsl's own constants, which gbuffers_water applies only under IPBR
+            smoothnessG = pow2(color.g) * color.g;
+            highlightMult = pow2(min1(pow2(color.g) * 1.5)) * 3.5;
+            reflectMult = 0.7;
+        #endif
+        // Every other mode takes ice from the resource pack's specular map (GetCustomMaterials,
+        // reflectMult = smoothnessD), which voxy's atlas does not carry. Iris binds an all-zero one
+        // where a pack has none, so loaded ice then gets smoothness 0 and no reflection, and LOD ice
+        // keeps its zeros; smoothnessG and highlightMult only act through that reflection. A pack
+        // that does give ice a specular map still reflects up close and not as LOD.
     }
 
     // Fade in over the same band the opaque patch dithers in over, so LODs never show inside loaded
