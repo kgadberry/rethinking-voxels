@@ -213,16 +213,32 @@ vec4 GetReflection(vec3 normalM, vec3 viewPos, vec3 nViewPos, vec3 playerPos, fl
                         // Seagrass and kelp are baked as cubes filling the water cell, so their faces
                         // clear the fluid top by an eighth of a block; below that a hit is water column.
                         float hitDepth = VoxyOpaqueDepth(texture2D(vxDepthTexOpaque, screenPosR).x);
-                        float hitRise = ViewToPlayer(ScreenToView(vec3(screenPosR, hitDepth))).y - playerPos.y;
+                        vec3 hitPlayerPos = ViewToPlayer(ScreenToView(vec3(screenPosR, hitDepth)));
+                        float hitRise = hitPlayerPos.y - playerPos.y;
 
-                        if (hitRise > max(0.25, 0.002 * lViewPos)) {
-                            vec2 cdist = abs(screenPosR - 0.5) / rEdge;
+                        // The hit is in this frame's LOD depth but colortex15 is last frame's image, so
+                        // its colour is looked up where it stood on last frame's screen. Only x, y and w
+                        // of the projection reach that UV, and vxProj shares those rows with the vanilla
+                        // projection (voxy rewrites only its depth row; neither is jittered), so Iris's
+                        // previous vanilla projection serves although gbufferProjection is voxy's here.
+                        vec3 cameraOffset = vec3(cameraPositionInt - previousCameraPositionInt)
+                                          + (cameraPositionFract - previousCameraPositionFract);
+                        vec4 prevClipR = gbufferPreviousProjection
+                                       * (gbufferPreviousModelView * vec4(hitPlayerPos + cameraOffset, 1.0));
+                        vec2 prevPosR = prevClipR.xy / prevClipR.w * 0.5 + 0.5;
+                        vec2 cdist = abs(prevPosR - 0.5) / rEdge;
+
+                        // Behind last frame's camera or off its screen there is no colour to take, so it
+                        // goes to the sky like a miss: the first frame (identity previous matrices) and a
+                        // teleport's huge camera offset land here. Off screen is the rEdge box the march
+                        // used, so a static camera keeps every hit it had.
+                        if (hitRise > max(0.25, 0.002 * lViewPos) && prevClipR.w > 0.0 && max(cdist.x, cdist.y) < 1.0) {
                             vec2 edgeFactor = pow2(pow2(pow2(cdist)));
-                            screenPosR.y += (dither - 0.5) * (0.03 * (edgeFactor.x + edgeFactor.y) + 0.004);
+                            prevPosR.y += (dither - 0.5) * (0.03 * (edgeFactor.x + edgeFactor.y) + 0.004);
 
                             // No DoFog: renderDistance is the vanilla far in this program, so it would
                             // flatten every LOD hit; colortex15's alpha already carries deferred1's skyFade.
-                            reflection = texture2D(colortex15, screenPosR);
+                            reflection = texture2D(colortex15, prevPosR);
                             reflection.rgb = pow2(reflection.rgb + 1.0);
 
                             edgeFactor.x = pow2(edgeFactor.x);
