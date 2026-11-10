@@ -138,7 +138,8 @@ void main() {
         viewPos /= viewPos.w;
         float lViewPos = length(viewPos.xyz);
 
-        #if defined DISTANT_HORIZONS && defined NETHER
+        // LOD texels at their own distance, as composite5 divides the bloom fog back out
+        #ifdef DISTANT_HORIZONS
             float z0DH = texelFetch(dhDepthTex, texelCoord, 0).r;
             vec4 screenPosDH = vec4(texCoord, z0DH, 1.0);
             vec4 viewPosDH = dhProjectionInverse * (screenPosDH * 2.0 - 1.0);

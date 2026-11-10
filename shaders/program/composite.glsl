@@ -223,6 +223,13 @@ void main() {
     #endif
 
     #ifdef BLOOM_FOG_COMPOSITE
+        // LOD texels at their own distance, as composite5 divides the bloom fog back out (the block
+        // at the top already does this outside the overworld)
+        #if defined DISTANT_HORIZONS && defined OVERWORLD
+            float z0DH = texelFetch(dhDepthTex, texelCoord, 0).r;
+            vec4 viewPosDH = dhProjectionInverse * (vec4(texCoord, z0DH, 1.0) * 2.0 - 1.0);
+            lViewPos = min(lViewPos, length(viewPosDH.xyz / viewPosDH.w));
+        #endif
         color *= GetBloomFog(lViewPos); // Reminder: Bloom Fog can move between composite1-2-3
     #endif
 
