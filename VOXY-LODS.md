@@ -125,8 +125,11 @@ it on, and it can sit unnoticed in a saved settings file.
   chunk only once all 8 neighbours are loaded. So every face this discards looks toward the
   camera, which includes genuine ice sides in the outer band; a test for faces turned away from
   the camera would never discard anything. Which face draws the line it was made for is still to
-  be identified in game (open). The option's lang comment still describes the earlier,
-  unloaded-neighbour explanation.
+  be identified in game (open, see below). Until `339b72b` the discard was always on: Iris
+  registers a boolean define as an option only when some source names it on a plain `#ifdef` or
+  `#ifndef` line, and this one was referenced only through `#if defined ... &&`, so its menu slot
+  was blank. The Activate Settings block in `lib/common.glsl` now names it, which is what any new
+  option used only inside a compound `#if` needs.
 - LOD ice reads clearer than nearby loaded ice because loaded ice multiplies its background by
   `translucentMult`, which the pack fades to 1.0 at the far plane; at the handoff the two agree.
   Matching LOD ice to near ice would create a seam at the boundary, so it is left alone.
@@ -259,6 +262,13 @@ unbound clouds) need a second run with an edited option file.
 
 ## Open items
 
+- `LOD_ICE_EDGE_FIX` still discards genuine camera-facing ice sides in the outer 15 percent of
+  the render distance. Narrowing it needs one observation in game with the option off: whether
+  the dark line exists at all, whether it stays a fixed distance ahead (a handoff effect that
+  discarding faces cannot fix) or stays put in the world, and if so which block face it is and
+  what its neighbour on the camera side is.
+- Minecraft 26.3 / voxy 0.2.20: gate the forward branch of `lib/vx/voxyProj.glsl` and
+  `VoxyOpaqueDepth` on `VOXY < 3` before using the pack there, see "voxy-revz".
 - Seams between LOD sections and the underwater LOD look: voxy-side, see above.
 - LOD translucents have no refraction (composite's `DoRefraction` gates on a material mask the
   patch never writes) and no `translucentMult`.
