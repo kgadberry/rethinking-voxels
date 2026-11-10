@@ -115,14 +115,21 @@ void main() {
         vec4 clipPos = vec4((texelCoord + 0.5) / view, 1.0 - normalDepthData.a, 1.0) * 2.0 - 1.0;
         vec4 playerPos = gbufferModelViewInverse * (gbufferProjectionInverse * clipPos);
         vec3 vxPos = playerPos.xyz / playerPos.w + fractCamPos;
+        // The hand is drawn view-locked and its depth unprojects to a point about a tenth of a
+        // block from the camera, so treat it as prepare1 to prepare4 do: no texel snapping (a
+        // texel there spans much of the screen) and its history stays at its own pixel.
+        bool isHand = normalDepthData.a > 0.44;
         #if defined DO_PIXELATION_EFFECTS && defined PIXELATED_BLOCKLIGHT
-            vxPos = floor(vxPos * PIXEL_TEXEL_SCALE + 0.5 * normalDepthData.xyz) / PIXEL_TEXEL_SCALE + 0.5 / PIXEL_TEXEL_SCALE;
+            if (!isHand) {
+                vxPos = floor(vxPos * PIXEL_TEXEL_SCALE + 0.5 * normalDepthData.xyz) / PIXEL_TEXEL_SCALE + 0.5 / PIXEL_TEXEL_SCALE;
+            }
             float lPlayerPos = length(playerPos.xyz);
         #endif
         playerPos.xyz = (vxPos - fractCamPos) * playerPos.w;
         playerPos.xyz += playerPos.w * (fractCamPosOffset + floorCamPosOffset);
         vec4 prevClipPos = gbufferPreviousProjection * (gbufferPreviousModelView * playerPos);
         prevClipPos = prevClipPos / prevClipPos.w * 0.5 + 0.5;
+        if (isHand) prevClipPos.xy = (texelCoord + 0.5) / view;
 
         vec3 writeColor = imageLoad(colorimg12, ivec2(view * prevClipPos.xy)).rgb;
         #ifdef BLOCKLIGHT_HIGHLIGHT
@@ -177,7 +184,7 @@ void main() {
                     )) * exp(
                         -dot(texCoordOffset, texCoordOffset)*0.8
                         #if defined DO_PIXELATION_EFFECTS && defined PIXELATED_BLOCKLIGHT
-                            - 2.0 * PIXEL_TEXEL_SCALE / lPlayerPos * length(vxPos - newVxPos - dot(playerPos.xyz, vxPos - newVxPos) / pow2(lPlayerPos) * playerPos.xyz)
+                            - (isHand ? 0.0 : 2.0 * PIXEL_TEXEL_SCALE / lPlayerPos * length(vxPos - newVxPos - dot(playerPos.xyz, vxPos - newVxPos) / pow2(lPlayerPos) * playerPos.xyz))
                         #endif
                     );
                 vec3 thisCol = readColors[c.x][c.y];
