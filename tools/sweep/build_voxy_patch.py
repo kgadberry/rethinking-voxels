@@ -6,6 +6,7 @@ R = os.environ.get("PACK_ROOT", os.path.normpath(os.path.join(HERE, "..", "..", 
 VX = os.path.join(os.environ["VOXY_SHADERS"], "assets")
 OUT=sys.argv[1]
 MODE=sys.argv[3] if len(sys.argv)>3 else "opaque"
+IRIS=sys.argv[4] if len(sys.argv)>4 else "11104"
 
 # ---- voxy side: #import <ns:path> -> assets/<ns>/shaders/<path>, once each (guard-free) ----
 imp_re=re.compile(r'^\s*#import\s*<([^:>]+):([^>]+)>\s*$')
@@ -67,7 +68,7 @@ L.append("#define PATCHED_SHADER 1")
 L.append("#define VOXY 2")
 if MODE=="translucent": L.append("#define TRANSLUCENT")
 L.append("#define MC_VERSION 12602")
-L.append("#define IRIS_VERSION 11104")
+L.append(f"#define IRIS_VERSION {IRIS}")
 L += ["#define IS_IRIS","#define MC_GL_VENDOR_NVIDIA","#define MC_GL_RENDERER_GEFORCE","#define MC_RENDER_QUALITY 1.0",
       "#define MC_SHADOW_QUALITY 1.0","#define MC_NORMAL_MAP","#define MC_SPECULAR_MAP","#define MC_OS_LINUX",
       "#define MC_GL_VERSION 460","#define MC_GLSL_VERSION 460","#define IRIS_HAS_TRANSLUCENCY_SORTING",

@@ -4,7 +4,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 R = os.environ.get("PACK_ROOT", os.path.normpath(os.path.join(HERE, "..", "..", "shaders")))
 entry=sys.argv[1]          # e.g. world0/deferred1.fsh
 out=sys.argv[2]
-voxy = len(sys.argv)>3 and sys.argv[3]=="voxy"
+# argv[3] = LOD mode: voxy (VOXY 2), dh (DISTANT_HORIZONS, as Iris defines it with the real DH mod)
+# or none (neither); argv[4] = IRIS_VERSION (default 11104)
+lod = sys.argv[3] if len(sys.argv)>3 else "voxy"
+iris = sys.argv[4] if len(sys.argv)>4 else "11104"
+if lod not in ("voxy","dh","none"): sys.exit("LOD mode must be voxy, dh or none")
 
 inc_re=re.compile(r'^(\s*)#include\s+"([^"]+)"\s*$')
 def pk(path,acc,depth=0):
@@ -26,9 +30,10 @@ macros=["#define MC_VERSION 12602","#define IS_IRIS","#define MC_GL_VENDOR_NVIDI
         "#define MC_GL_RENDERER_GEFORCE","#define MC_RENDER_QUALITY 1.0",
         "#define MC_SHADOW_QUALITY 1.0","#define MC_NORMAL_MAP","#define MC_SPECULAR_MAP",
         "#define MC_OS_LINUX","#define MC_GL_VERSION 460","#define MC_GLSL_VERSION 460",
-        "#define IRIS_VERSION 11104","#define IRIS_HAS_TRANSLUCENCY_SORTING",
+        f"#define IRIS_VERSION {iris}","#define IRIS_HAS_TRANSLUCENCY_SORTING",
         "#define IRIS_FEATURE_SEPARATE_HARDWARE_SAMPLERS","#define IRIS_FEATURE_HIGHER_SHADOWCOLOR","#define IRIS_FEATURE_CUSTOM_IMAGES","#define IRIS_FEATURE_PER_BUFFER_BLENDING","#define IRIS_FEATURE_COMPUTE_SHADERS","#define IRIS_FEATURE_TESSELLATION_SHADERS","#define IRIS_FEATURE_ENTITY_TRANSLUCENT","#define IRIS_FEATURE_REVERSED_CULLING","#define IRIS_FEATURE_BLOCK_EMISSION_ATTRIBUTE","#define IRIS_FEATURE_CAN_DISABLE_WEATHER","#define IRIS_FEATURE_SSBO","#define IRIS_FEATURE_FADE_VARIABLE","#define IRIS_FEATURE_TEXTURE_FILTERING","#define IRIS_TAG_SUPPORT 2"]
-if voxy: macros.append("#define VOXY 2")
+if lod=="voxy": macros.append("#define VOXY 2")
+if lod=="dh": macros.append("#define DISTANT_HORIZONS")
 L=[]
 for line in body:
     L.append(line)

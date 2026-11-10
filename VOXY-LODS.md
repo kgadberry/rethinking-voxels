@@ -149,14 +149,29 @@ it on, and it can sit unnoticed in a saved settings file.
 `tools/sweep/sweep.sh` assembles every program the way Iris does (world defines,
 `IRIS_VERSION`, the `IRIS_FEATURE_*` flags, `IRIS_TAG_SUPPORT`) and the six patch variants the
 way voxy's pipeline does, applies an Iris settings file, and runs glslangValidator. It needs
-`glslangValidator` on the path (`nix-shell -p glslang`) and takes `SWEEP_OPTS` (the profile's
-`<pack>.zip.txt`), `VOXY_JAR` (voxy's shader sources are extracted from it; without it the patch
-variants are skipped), `SWEEP_OUT` and `SWEEP_TAG`. The baseline is 212 pass and 29 known gaps:
-`world*_dh_terrain_{fsh,vsh}`, `world*_dh_water_{fsh,vsh}`, `world*_gbuffers_terrain_fsh`,
-`world*_gbuffers_line_vsh`, `world*_shadow_{fsh,vsh}`, `world*_deferred1_csh`,
-`world0_gbuffers_skytextured_fsh`, `world0_shadowcomp1_b_csh`. Because the sweep reads the live
-settings, the baseline moves when options change in-game, and branches the live options never
-select (IPBR lava, unbound clouds) need a second run with an edited option file.
+`glslangValidator` on the path (`nix-shell -p glslang`).
+
+By default it runs a matrix: pack programs for LOD mode `voxy` (`VOXY 2`), `none` (no LOD mod:
+the `#ifndef DISTANT_HORIZONS` fog and cloud paths) and `dh` (Iris with real Distant Horizons
+defines `DISTANT_HORIZONS`, which is what the pack keys on) times `IRIS_VERSION` 11104 and
+11103 (the `#else` branches of `voxyProj.glsl`, `voxyAsDh.glsl`, `voxy_opaque/translucent`),
+and the voxy patches for both Iris versions. Each config writes `r_<tag>_<config>.txt`
+(`voxy-11104`, `none-11103`, `patch-11104`, ...) and its own log directory under `SWEEP_OUT`.
+
+Inputs: `SWEEP_OPTS` (the profile's `<pack>.zip.txt`), `VOXY_JAR` (voxy's shader sources are
+extracted from it; without it the patch variants are skipped), `SWEEP_OUT`, `SWEEP_TAG`,
+`SWEEP_LODS` and `SWEEP_IRIS` (space separated overrides of the matrix), `SWEEP_ONLY` (extended
+regex on result names such as `world0_gbuffers_water_fsh` or `voxy_world0_translucent`) and
+`SWEEP_BASELINE` (directory of result files from an earlier run with the same tag).
+
+About 26 programs per config fail only because the harness does not emulate what Iris injects
+(`DH_BLOCK_LEAVES`, `MC_RENDER_STAGE_*`, `projectionMatrix`, `gl_Fog`, `shadow2D`,
+`dhMaterialId`, `dhProjection` in the dh programs), so the raw FAIL count is no regression
+signal. Take a baseline from the known-good tree and rerun with `SWEEP_BASELINE`: it prints
+`NEW FAIL <config> <name>` for every program that fails now but passed (or was absent) there,
+and exits non-zero if there is any. Because the sweep reads the live settings, the baseline
+moves when options change in-game, and branches the live options never select (IPBR lava,
+unbound clouds) need a second run with an edited option file.
 
 ## Open items
 
