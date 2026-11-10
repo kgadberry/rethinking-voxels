@@ -163,15 +163,6 @@ void main() {
         if (pow2(cloudLinearDepth + OSIEBCA * dither) * renderDistance < min(lViewPos, renderDistance)) discard;
     #endif
 
-    // Hides a dark line seen over the LOD ice near the edge of the loaded area. Translucent terrain
-    // is back-face culled (Sodium's terrain pipeline culls, Iris keeps it outside the shadow pass),
-    // so every face this reaches looks toward the camera: it also hides genuine ice sides in this
-    // band, and a test for faces turned away from the camera would never discard anything.
-    #if defined LOD_ICE_EDGE_FIX && defined DISTANT_HORIZONS
-        if (mat == 32004 && abs(NdotU) < 0.1 && lViewPos > far * 0.85 &&
-            texelFetch(dhDepthTex, texelCoord, 0).r < 1.0) discard;
-    #endif
-
     float materialMask = 0.0;
 
     vec3 nViewPos = normalize(viewPos);
