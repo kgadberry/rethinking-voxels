@@ -115,6 +115,13 @@ layout(location = 0) out vec4 fragColor;
 
 //Program//
 void voxy_emitFragment(VoxyFragmentParameters parameters) {
+    // Voxy draws translucent quads with culling off and turns parameters.face toward the camera, so the
+    // far side of a translucent block showed as a second layer, such as the underside of an ice sheet
+    // lit from the water below it. Loaded translucent terrain is back-face culled, so drop what voxy's
+    // own getFace() says is seen from behind. Water keeps both sides, as vanilla's fluid renderer adds
+    // a reversed copy of its faces.
+    if (parameters.face != getFace() && parameters.customId != 32000u) discard;
+
     #if VOXY_DEBUG == 1
         fragColor = vec4(0.0, 1.0, 1.0, 1.0);
         return;
