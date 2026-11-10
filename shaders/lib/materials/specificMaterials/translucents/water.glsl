@@ -218,6 +218,17 @@
                 vec3 viewPosT = ScreenToView(screenPosT);
             #endif
             float lViewPosT = length(viewPosT);
+            #if defined GBUFFERS_WATER && defined VOXY_AS_DH
+                // A ray that leaves the loaded area under water has an LOD floor behind it, not none;
+                // measured to the far plane, the water near the loaded edge read as bottomless
+                if (depthT == 1.0) {
+                    float depthTLod = texelFetch(dhDepthTex1, texelCoord, 0).r;
+                    if (depthTLod < 1.0) {
+                        vec4 viewPosTLod = dhProjectionInverse * vec4(vec3(screenPos.xy, depthTLod) * 2.0 - 1.0, 1.0);
+                        lViewPosT = length(viewPosTLod.xyz / viewPosTLod.w);
+                    }
+                }
+            #endif
             float lViewPosDifM = lViewPos - lViewPosT;
 
             #if WATER_STYLE < 3
