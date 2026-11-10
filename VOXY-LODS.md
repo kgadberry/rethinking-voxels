@@ -72,7 +72,13 @@ height on every LOD level; see "voxy-revz"). Static findings about the pack itse
   entities, beacon beams, dh_water). There `skyFade` becomes an alpha cut, so `DoHaze` leaves it
   alone: those layers get the haze only as a colour mix, and their alpha is cut by border fog
   alone. The dark outline fogs its own zero-initialised `skyFade` and, when that is above zero,
-  replaces the pixel's with it.
+  replaces the pixel's with it. Under voxy that border-fog cut is measured against the LOD
+  horizon (`renderDistance`), so it is about zero at the vanilla edge and loaded translucents
+  are not dissolved where the LODs begin.
+- Bloom fog measures LOD texels at their own distance in every dimension (the pass that
+  multiplies it in and `composite5`, which divides it back out, read the same distance). Vanilla
+  depth is the far plane on every LOD texel, which used to give LODs full bloom fog right past
+  the vanilla render distance: a brightness step at the handoff at night and in rain.
 
 ## Debug modes
 
@@ -115,10 +121,22 @@ it on, and it can sit unnoticed in a saved settings file.
 ## Ice and other translucents
 
 - Voxy sends every translucent block through the translucent pass. Only water (32000) and ice
-  (32004) have material handling there; ice takes the IPBR constants (reflectMult 0.7). Glass
-  would be `smoothnessG = 1.0; highlightMult = 3.5; reflectMult = 0.5;` and tinted glass
+  (32004) have material handling there. Ice takes the IPBR constants (reflectMult 0.7) only
+  under `IPBR`, as `gbuffers_water` does. In the other pack modes loaded ice reads its material
+  from the resource pack's specular map (`reflectMult = smoothnessD`), which voxy's atlas does
+  not carry; Iris binds an all-zero map where a pack has none, so LOD ice keeps zeros there and
+  both are matte. A pack that does give ice a specular map reflects up close and not as LOD.
+  Glass would be `smoothnessG = 1.0; highlightMult = 3.5; reflectMult = 0.5;` and tinted glass
   `color.a = pow(color.a, 1.0 - fresnel * 0.65); reflectMult = 0.75;` if wanted; stained glass,
   slime, honey and portals need `translucentMult`, which the patch cannot write.
+- Voxy draws translucent quads with face culling off (`MDICSectionRenderer.renderTranslucent`)
+  and turns `parameters.face` toward the camera, so the far side of a translucent block showed
+  as a second layer: under an ice sheet, its underside lit from the water voxel below. Seen
+  through loaded ice near the edge of the loaded area, where the LOD top face is not drawn, that
+  was a dark band just before the LOD ice began. The translucent patch now discards a quad seen
+  from behind (`parameters.face != getFace()`), as loaded translucent terrain is back-face
+  culled. Water keeps both sides, because vanilla's fluid renderer adds a reversed copy of its
+  faces and underwater views need it.
 - `LOD_ICE_EDGE_FIX` discards vertical loaded-ice faces past `far * 0.85` where LOD depth
   exists (voxy or real DH). Translucent terrain is back-face culled (Sodium's terrain pipeline
   uses `withCull(true)`, and Iris disables culling only in the shadow pass), and Sodium meshes a
@@ -130,9 +148,10 @@ it on, and it can sit unnoticed in a saved settings file.
   `#ifndef` line, and this one was referenced only through `#if defined ... &&`, so its menu slot
   was blank. The Activate Settings block in `lib/common.glsl` now names it, which is what any new
   option used only inside a compound `#if` needs.
-- LOD ice reads clearer than nearby loaded ice because loaded ice multiplies its background by
-  `translucentMult`, which the pack fades to 1.0 at the far plane; at the handoff the two agree.
-  Matching LOD ice to near ice would create a seam at the boundary, so it is left alone.
+- `translucentMult` is not a visible difference between loaded and LOD ice. It never multiplies
+  the background colour: composite only uses it to tint light-shaft, coloured-light-fog, nether
+  storm and rainbow samples behind the surface, and `gbuffers_water` fades it to 1.0 at `far`.
+  The mismatch at the handoff came from the material mode and the second layer, both above.
 - Seams between LOD sections are voxy geometry: `RenderDataFactory.acquireNeighborData` culls
   same-model translucent faces only against same-level neighbours (`world.acquire(section.lvl,
   ...)`), so every LOD-level ring keeps its internal faces, and the patch cannot tell those from
@@ -263,15 +282,17 @@ unbound clouds) need a second run with an edited option file.
 ## Open items
 
 - `LOD_ICE_EDGE_FIX` still discards genuine camera-facing ice sides in the outer 15 percent of
-  the render distance. Narrowing it needs one observation in game with the option off: whether
-  the dark line exists at all, whether it stays a fixed distance ahead (a handoff effect that
-  discarding faces cannot fix) or stays put in the world, and if so which block face it is and
-  what its neighbour on the camera side is.
+  the render distance. The causes found for the seam it was added for are on the LOD side (the
+  material mode and the back-face layer, see "Ice and other translucents") and are fixed there,
+  and no vertical loaded face is involved, so the option is a candidate for default off and then
+  removal. One check in game with it off decides: if no line remains, remove it; if one does,
+  note whether it stays a fixed distance ahead or stays put in the world.
 - Minecraft 26.3 / voxy 0.2.20: gate the forward branch of `lib/vx/voxyProj.glsl` and
   `VoxyOpaqueDepth` on `VOXY < 3` before using the pack there, see "voxy-revz".
 - Seams between LOD sections and the underwater LOD look: voxy-side, see above.
-- LOD translucents have no refraction (composite's `DoRefraction` gates on a material mask the
-  patch never writes) and no `translucentMult`.
+- LOD water has no refraction (composite's `DoRefraction` gates on the water material mask,
+  which the patch never writes; ice and glass get none in either path), and LOD translucents
+  write no `translucentMult`.
 - The GI ambient normal for LOD translucents still uses `+normalM` at full weight where loaded
   water uses the downward half-weight hemisphere (`mainLighting.glsl`, the `#ifndef
   GBUFFERS_WATER` branch). Untested because the irradiance cache cannot be measured offline.
