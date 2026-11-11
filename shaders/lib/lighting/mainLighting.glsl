@@ -539,22 +539,7 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
             // voxelized and the cache there holds only light diffused out of the loaded area. Stand in
             // what shadowcomp1 settles on for an open surface (each sky sample capped at 2 * ambientColor
             // at weight 2, so ambientColor): this texel's vanilla ambient.
-            vec3 giCache = ambientColorM * ambientMult;
-            #ifdef DH_WATER
-                // LOD water and ice continue the loaded water and ice next to them, whose cache values also
-                // carry what nearby terrain bounces onto them, so read the cache where the loaded area ends
-                // in this direction, at this height, a quarter block inside the surface as gbuffers_water does
-                float borrowScale = (far - 2.0) / max(length(playerPos.xz), 0.001);
-                if (borrowScale < 1.0 && abs(playerPos.y) < far - 2.0) {
-                    vec3 borrowPos = vec3(playerPos.x * borrowScale, playerPos.y, playerPos.z * borrowScale)
-                                   + fractCamPos - 0.25 * worldNormalM;
-                    if (isInRange(borrowPos)) {
-                        vec4 borrowed = textureLod(irradianceCache, (borrowPos / voxelVolumeSize + 0.5) * vec3(1.0, 0.5, 1.0), 0);
-                        if (borrowed.a > 0.01) giCache = borrowed.rgb / borrowed.a; // none inside terrain
-                    }
-                }
-            #endif
-            vec3 giLighting = 1.8 * giCache * GI_STRENGTH * 0.5;
+            vec3 giLighting = 1.8 * ambientColorM * ambientMult * GI_STRENGTH * 0.5;
 
             // That is a sky-lit surface. Seen from under water nearly every LOD is submerged (the rest
             // lie behind full water fog). Loaded terrain there reads a cache whose sky term is capped
