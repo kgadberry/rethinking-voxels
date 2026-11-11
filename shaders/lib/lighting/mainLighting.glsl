@@ -103,11 +103,9 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
 
     #ifdef OVERWORLD
         #ifdef VOXY_OPAQUE
-            // LOD sea floors never reach the shadow map, and y^8 buries every submerged block
+            // LOD sea floors never reach the shadow map, and y^8 buries every submerged block; loaded
+            // terrain ramps to the same y^4 at the edge (below), above water and under it alike
             float skyLightShadowMult = pow2(lightmapY2);
-            // Seen from under water they sit just past the loaded edge, and shadows end short of far
-            // (11/12 of min(shadowDistance, far)), so the loaded floor beside them takes y^8 too
-            if (isEyeInWater == 1) skyLightShadowMult *= skyLightShadowMult;
         #else
             float skyLightShadowMult = pow2(pow2(lightmapY2));
             #if defined VOXY_AS_DH && (defined GBUFFERS_TERRAIN || defined GBUFFERS_BLOCK)
