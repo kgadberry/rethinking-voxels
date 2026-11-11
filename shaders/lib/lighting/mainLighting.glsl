@@ -110,6 +110,14 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
             if (isEyeInWater == 1) skyLightShadowMult *= skyLightShadowMult;
         #else
             float skyLightShadowMult = pow2(pow2(lightmapY2));
+            #if defined VOXY_AS_DH && (defined GBUFFERS_TERRAIN || defined GBUFFERS_BLOCK)
+                // Hand over to the LODs' y^4 across the last section before far. Sodium renders a
+                // section while its nearest point is within far, so everything past far is edge
+                // geometry with LODs right behind it, and shadows stop short of far (11/12 of
+                // min(shadowDistance, far)), so the fallback alone lights it.
+                float edgeFallback = smoothstep(far - 16.0, far, max(length(playerPos.xz), abs(playerPos.y)));
+                skyLightShadowMult = mix(skyLightShadowMult, pow2(lightmapY2), edgeFallback);
+            #endif
         #endif
     #else
         float skyLightShadowMult = 1.0;
