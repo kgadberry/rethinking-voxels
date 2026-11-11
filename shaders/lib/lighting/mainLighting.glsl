@@ -543,6 +543,19 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
                 }
             #endif
             vec3 giLighting = 1.8 * giCache * GI_STRENGTH * 0.5;
+
+            // That is a sky-lit surface. Seen from under water nearly every LOD is submerged (the rest
+            // lie behind full water fog). Loaded terrain there reads a cache whose sky term is capped
+            // and only coarsely stepped by sky light, two to three times this value a few blocks down,
+            // and the cache diffused past the loaded edge carries that water on, so read it as loaded
+            // geometry does.
+            if (isEyeInWater == 1) {
+                #ifdef DH_WATER
+                    giLighting = 1.8 * readIrradianceCache(vxPos, -0.5 * mat3(gbufferModelViewInverse) * normalM) * GI_STRENGTH * 0.5;
+                #else
+                    giLighting = 1.8 * readIrradianceCache(vxPos, mat3(gbufferModelViewInverse) * normalM) * GI_STRENGTH * 0.5;
+                #endif
+            }
         #elif !defined GBUFFERS_WATER
             vec3 giLighting = 1.8 * readIrradianceCache(vxPos, mat3(gbufferModelViewInverse) * normalM) * GI_STRENGTH * 0.5;
         #else
