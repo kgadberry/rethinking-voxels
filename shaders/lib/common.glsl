@@ -30,6 +30,7 @@
 
     #define SDF_UPDATE_INTERVAL 2 //[0 1 2 3 4 5 6 8 10 13 16 20]
     #define VOXY_DEBUG 0 //[0 1 2 3 4 5]
+    #define BLOCKLIGHT_DEBUG 0 //[0 1 2 3 4]
     #define INFESTED_DEEPSLATE_GLOW
     #define PER_PIXEL_LIGHT
     #define LONGER_LIGHT_LISTS

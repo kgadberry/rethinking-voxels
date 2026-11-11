@@ -47,6 +47,9 @@ vec3 highlightColor = normalize(pow(lightColor, vec3(0.37))) * (0.3 + 1.5 * sunV
 void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 viewPos, float lViewPos, vec3 geoNormal, vec3 normalM, float dither,
                 vec3 worldGeoNormal, vec2 lightmap, bool noSmoothLighting, bool noDirectionalShading, bool noVanillaAO,
                 bool centerShadowBias, int subsurfaceMode, float smoothnessG, float materialMask, float highlightMult, float emission) {
+    #if BLOCKLIGHT_DEBUG == 1 || BLOCKLIGHT_DEBUG == 4
+        float blocklightDebugLum = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+    #endif
     #ifdef DO_PIXELATION_EFFECTS
         vec2 pixelationOffset = ComputeTexelOffset(tex, texCoord);
         #ifdef GBUFFERS_TERRAIN
@@ -705,5 +708,26 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
     color.rgb *= pow2(1.0 - darknessLightFactor);
     #ifdef WHITE_WORLD
     color.rgb = finalDiffuse + lightHighlight;
+    #endif
+
+    // Diagnostic views of the voxel block light. 1 paints each pixel by the source it took:
+    // green where the per-pixel trace matched this surface in colortex8, red where it fell back
+    // to the per-block irradiance cache. 2 and 3 show either source alone, as on white albedo:
+    // the raw per-pixel trace buffer at this pixel, matched or not, and the cache. 4 shows the
+    // distance field level a trace reads here (getVoxelResolution in voxelReading.glsl).
+    #if BLOCKLIGHT_DEBUG > 0 && defined PER_PIXEL_LIGHT && !defined GBUFFERS_WATER && !defined VOXY_TRANSLUCENT
+        #if BLOCKLIGHT_DEBUG == 1
+            color.rgb = (foundValidLoc ? vec3(0.1, 1.0, 0.1) : vec3(1.0, 0.1, 0.1)) * (0.2 + 0.8 * blocklightDebugLum);
+        #elif BLOCKLIGHT_DEBUG == 2
+            color.rgb = sqrt(max(4.0 * texelFetch(colortex12, ivec2(gl_FragCoord.xy), 0).rgb, vec3(0.0)));
+        #elif BLOCKLIGHT_DEBUG == 3
+            color.rgb = sqrt(max(4.0 * readSurfaceVoxelBlocklight(vxPos, worldNormalM), vec3(0.0)));
+        #else
+            int blocklightDebugLevel = max(min(int(-log2(infnorm(vxPos / (voxelVolumeSize - 2.01)))) - 1, VOXEL_DETAIL_AMOUNT - 1), 0);
+            color.rgb = vec3[8](
+                vec3(1.0, 0.1, 0.1), vec3(1.0, 0.5, 0.1), vec3(1.0, 1.0, 0.1), vec3(0.1, 1.0, 0.1),
+                vec3(0.1, 1.0, 1.0), vec3(0.1, 0.3, 1.0), vec3(0.7, 0.2, 1.0), vec3(1.0)
+            )[blocklightDebugLevel] * (0.2 + 0.8 * blocklightDebugLum);
+        #endif
     #endif
 }
