@@ -10,6 +10,16 @@ float GetDistX(float dist) {
     return (far * (dist - near)) / (dist * (far - near));
 }
 
+#ifdef DISTANT_HORIZONS
+    // GetDepth of the LOD or DH point behind this texel: where the march would stop at a loaded
+    // block in its place. Past the vanilla far plane that is the sky's value.
+    float GetLodMarchDepth(vec2 texCoord, float zDH) {
+        vec4 viewPosDH = dhProjectionInverse * (vec4(texCoord, zDH, 1.0) * 2.0 - 1.0);
+        vec4 clipPosDH = gbufferProjection * vec4(viewPosDH.xyz / viewPosDH.w, 1.0);
+        return GetDepth(min(clipPosDH.z / clipPosDH.w * 0.5 + 0.5, 1.0));
+    }
+#endif
+
 vec4 DistortShadow(vec4 shadowpos, float distortFactor) {
     shadowpos.xy *= 1.0 / distortFactor;
     shadowpos.z = shadowpos.z * 0.2;
@@ -131,12 +141,25 @@ vec4 GetVolumetricLight(inout vec3 color, inout float vlFactor, vec3 translucent
         // loaded terrain at the same distance. March them as far as a loaded block there would.
         if (isEyeInWater != 0 && z1 == 1.0) {
             float z1DH = texelFetch(dhDepthTex1, texelCoord, 0).r;
-            if (z1DH < 1.0) {
-                vec4 viewPos1DH = dhProjectionInverse * (vec4(texCoord, z1DH, 1.0) * 2.0 - 1.0);
-                vec4 clipPos1DH = gbufferProjection * vec4(viewPos1DH.xyz / viewPos1DH.w, 1.0);
-                depth1 = GetDepth(min(clipPos1DH.z / clipPos1DH.w * 0.5 + 0.5, 1.0));
-            }
+            if (z1DH < 1.0) depth1 = GetLodMarchDepth(texCoord, z1DH);
         }
+    #endif
+
+    #if defined DISTANT_HORIZONS && defined OVERWORLD && SHADOW_QUALITY >= 1
+        // The shadow pass draws only loaded sections, so under water a sample past the loaded edge
+        // finds no water above it, reads as lit and dry and is zeroed below, and every chunk that
+        // loads adds its shafts to each texel behind it: LOD terrain stepped darker than the loaded
+        // terrain replacing it. Such a sample takes the mean of the water samples this ray gathered
+        // before it, up to the first LOD translucent face, past which (the LOD surface seen from
+        // below) the ray is out of the water.
+        bool lodWaterFill = isEyeInWater == 1 && translucentMult == vec3(1.0);
+        float lodWaterDist = 1000.0;
+        if (lodWaterFill) {
+            float zTDH = texelFetch(dhDepthTex, texelCoord, 0).r;
+            if (zTDH < texelFetch(dhDepthTex1, texelCoord, 0).r) lodWaterDist = GetLodMarchDepth(texCoord, zTDH);
+        }
+        vec3 waterSampleSum = vec3(0.0);
+        float waterSampleCount = 0.0;
     #endif
 
     // Fast but inaccurate perspective distortion approximation
@@ -202,6 +225,10 @@ vec4 GetVolumetricLight(inout vec3 color, inout float vlFactor, vec3 translucent
                             #ifdef OVERWORLD
                                 vlSample *= vlColorReducer;
                             #endif
+                            #if defined DISTANT_HORIZONS && defined OVERWORLD
+                                waterSampleSum += vlSample;
+                                waterSampleCount += 1.0;
+                            #endif
                         }
                     } else {
                         #ifdef OVERWORLD
@@ -219,6 +246,10 @@ vec4 GetVolumetricLight(inout vec3 color, inout float vlFactor, vec3 translucent
                         #endif
 
                         if (isEyeInWater == 1 && translucentMult == vec3(1.0)) vlSample = vec3(0.0);
+                        #if defined DISTANT_HORIZONS && defined OVERWORLD
+                            if (lodWaterFill && waterSampleCount > 0.0 && currentDist < lodWaterDist &&
+                                length(playerPos.xz) > far) vlSample = waterSampleSum / waterSampleCount;
+                        #endif
                     }
                 #endif
             }
