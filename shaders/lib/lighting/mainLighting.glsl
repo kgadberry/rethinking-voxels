@@ -529,7 +529,14 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
         }
         if (!foundValidLoc) {
         #endif
-        voxelBlockLighting = 4.0 * readSurfaceVoxelBlocklight(vxPos, worldNormalM);
+        #ifdef GBUFFERS_WATER
+            // Translucents always read the cache, half a block out to the voxel in front. Offset along
+            // the face, not the bumped normal, or water waves sweep that read across the cache's
+            // block grid and the light pattern swims with them.
+            voxelBlockLighting = 4.0 * readSurfaceVoxelBlocklight(vxPos, worldGeoNormal);
+        #else
+            voxelBlockLighting = 4.0 * readSurfaceVoxelBlocklight(vxPos, worldNormalM);
+        #endif
         #if defined PER_PIXEL_LIGHT && !defined GBUFFERS_WATER
         }
     #endif
