@@ -379,7 +379,22 @@ void main() {
     }
 
     if (anyInFrustrum) {
-        imageStore(irradianceCacheI, coords + ivec3(0, voxelVolumeSize.y, 0), vec4(writeColor, 1));
+        // One dithered cone trace per light is noisy from frame to frame, and every reader of this
+        // half (translucents, LODs, unmatched pixels, light fog, reflections, GI bounces) showed that
+        // noise as flicker, so blend each fresh trace into the voxel's last value. The first pass
+        // shifts this half with the camera, so the history stays on its block. Alpha says whether a
+        // voxel holds a value: one shifted in from outside the volume or left untraced here does not
+        // (its colour stays 0 as before), and the next trace there is taken whole.
+        vec4 cacheEntry = vec4(writeColor, 0.0);
+        if (insideFrustrum && activeFrame) {
+            cacheEntry.a = 1.0;
+            vec4 prevEntry = imageLoad(irradianceCacheI, coords + ivec3(0, voxelVolumeSize.y, 0));
+            if (prevEntry.a > 0.5 && !any(isnan(prevEntry.rgb)) && !any(isinf(prevEntry.rgb))) {
+                // a time constant of about five frames where the voxel is retraced every frame or two
+                cacheEntry.rgb = mix(prevEntry.rgb, writeColor, min(0.2 * float(updateInterval), 0.5));
+            }
+        }
+        imageStore(irradianceCacheI, coords + ivec3(0, voxelVolumeSize.y, 0), cacheEntry);
         ivec4 lightPosToStore = (index < lightCount && lightCoords[index].w > 0) ? lightCoords[index] : ivec4(0);
         imageStore(lightStorage, coords, lightPosToStore);
     }
