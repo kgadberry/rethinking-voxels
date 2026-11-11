@@ -102,6 +102,9 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
         #ifdef VOXY_OPAQUE
             // LOD sea floors never reach the shadow map, and y^8 buries every submerged block
             float skyLightShadowMult = pow2(lightmapY2);
+            // Seen from under water they sit just past the loaded edge, and shadows end short of far
+            // (11/12 of min(shadowDistance, far)), so the loaded floor beside them takes y^8 too
+            if (isEyeInWater == 1) skyLightShadowMult *= skyLightShadowMult;
         #else
             float skyLightShadowMult = pow2(pow2(lightmapY2));
         #endif
