@@ -727,5 +727,16 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
                 vec3(0.1, 1.0, 1.0), vec3(0.1, 0.3, 1.0), vec3(0.7, 0.2, 1.0), vec3(1.0)
             )[blocklightDebugLevel] * (0.2 + 0.8 * blocklightDebugLum);
         #endif
+    #elif BLOCKLIGHT_DEBUG > 0 && defined GBUFFERS_WATER
+        // Translucents never take the per-pixel trace, so 1 paints them blue (cache by design), 3
+        // shows exactly the cache light they shade with, and 4 the cache's one value per block. They
+        // are drawn opaque here so what lies behind does not mix in; 2 leaves them as they are.
+        #if BLOCKLIGHT_DEBUG == 1
+            color = vec4(vec3(0.1, 0.3, 1.0) * (0.2 + 0.8 * blocklightDebugLum), 1.0);
+        #elif BLOCKLIGHT_DEBUG == 3
+            color = vec4(sqrt(max(voxelBlockLighting, vec3(0.0))), 1.0);
+        #elif BLOCKLIGHT_DEBUG == 4
+            color = vec4(vec3(1.0, 0.1, 0.1) * (0.2 + 0.8 * blocklightDebugLum), 1.0);
+        #endif
     #endif
 }
