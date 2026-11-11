@@ -108,9 +108,15 @@ it on, and it can sit unnoticed in a saved settings file.
 - With `WATER_ALPHA_MULT 300` and `WATER_FOG_MULT 150` the water body is 70 to 98 percent of a
   shallow pixel, so floor changes barely show. The LOD opaque pass uses a `lightmap.y^4` sun
   fallback beyond the shadow map instead of `y^8`, since LOD floors never get a real shadow.
-  Loaded floors at the handoff get no real shadow either (shadows end at 11/12 of
-  `min(shadowDistance, far)`) and take `y^8`, so with the eye under water the patch takes `y^8`
-  too; from above, LOD floors keep `y^4`.
+  Loaded terrain between the end of the shadow map (11/12 of `min(shadowDistance, far)`) and
+  the loaded edge gets no real shadow either, and used to take `y^8` there: a floor under two,
+  four or six blocks of water came out 2.4, 5 or 12 times darker than the LOD floor beside it,
+  so blocks visible under LOD ice sank into the dark as their chunk loaded. Under voxy,
+  `gbuffers_terrain` and `gbuffers_block` now ramp the fallback from `y^8` to `y^4` over the
+  last 16 blocks before `far` (the cylinder distance Sodium and voxy cull by), so loaded terrain
+  meets the LODs' value at the edge, above water and below. Shaded loaded terrain in that last
+  stretch is lighter for it, as the LOD terrain behind it already was. Real DH and setups
+  without LODs keep `y^8` throughout.
 - `glColor.a` must be the vertex alpha, 1.0. The texel alpha (0.706 water, 0.745 ice) read as
   vanilla ambient occlusion darkened every LOD translucent by a quarter.
 - `LIGHT_HIGHLIGHT` and `BLOCKLIGHT_HIGHLIGHT` are off for both `GBUFFERS_WATER` and
@@ -161,15 +167,15 @@ it on, and it can sit unnoticed in a saved settings file.
   LOD programs (`DH_TERRAIN`, `DH_WATER`) this texel's vanilla ambient as the cache value, which
   is what `shadowcomp1` settles on for an open surface; the compression, the `GI_AMBIENT_MIN`
   floor and the `voxelFactor` fade then run unchanged. Side faces and partly covered LOD
-  surfaces get the same stand-in rather than their own hemisphere value. Two refinements sit on
-  top of it. LOD water, ice and glass inside the volume instead take the cache value where the
-  loaded area ends in their direction (same height, `far - 2` out, a quarter block inside the
-  surface as `gbuffers_water` reads it), so they carry on what nearby terrain bounces onto the
-  loaded water and ice beside them; this only acts while `far - 2` lies inside the volume, so
-  at render distance 3 or less. And with the eye under water every LOD program reads the cache
-  as loaded geometry does, because the stand-in is a sky-lit surface and falls with sky light
-  where the cache's sky term is capped, which left submerged LODs at about half the ambient of
-  their loaded neighbours.
+  surfaces get the same stand-in rather than their own hemisphere value. With the eye under
+  water every LOD program reads the cache as loaded geometry does instead, because the stand-in
+  is a sky-lit surface and falls with sky light where the cache's sky term is capped, which
+  left submerged LODs at about half the ambient of their loaded neighbours. From above, a
+  submerged LOD floor inside the volume therefore stays darker in ambient than the loaded floor
+  beside it (about 0.95, 0.75 to 0.9 and 0.5 to 0.7 of it under two, four and six blocks of
+  water). The opaque patch cannot tell a submerged floor from a cave: its parameters carry no
+  fluid flag and LOD translucents draw after it. The volume is a box, so at `VX_VOL_SIZE 0` it
+  reaches about 68 blocks toward its corners.
 - Loaded and LOD ice cover the same share of a pixel, 0.745. Every texel of `ice.png` has alpha
   190, voxy's software bake rasterises one winding per view so each face texture is a single
   unblended layer, mips of a uniform alpha are unchanged, both samplers are nearest within a
@@ -238,8 +244,20 @@ it on, and it can sit unnoticed in a saved settings file.
   each frame near the camera, so a failed match looks blocky and flickers. LOD texels never
   match, so they always read the cache. At `BLOCKLIGHT_RESOLUTION 1` `prepare4_csh_a` applies
   no temporal filter at all, so 1 flickers more than 2.
+- Translucents never take the per-pixel path: the colortex8 search is compiled out for
+  `GBUFFERS_WATER`, so water, ice and glass always read the cache, half a block out along the
+  face normal (the wave-bumped normal made the read swim across the block grid). They are not
+  in the distance field either, so the cache voxel in front of one takes its N.L from the
+  nearest opaque surface. One value per block is all the cache holds, so their block-light
+  shadows are block-sized; only a trace in the translucent pass itself would change that.
+- The cache's block-light half is blended over time at the write in `shadowcomp1` (a fresh
+  trace enters at 0.2, more where a voxel is retraced less often), so its readers no longer
+  show the per-frame dither of the cone traces as flicker; lights settle over about five
+  frames on those surfaces. Alpha there now means "holds a value": a voxel shifted in from
+  outside the volume has none, and its next trace is taken whole.
 - `BLOCKLIGHT_DEBUG` shows, per pixel, whether a surface took the per-pixel trace or the cache,
-  each source alone, and the distance-field level its trace sees.
+  each source alone, and the distance-field level its trace sees. Translucents show blue on
+  the map, solid with their own cache light in the cache view, and red in the resolution view.
 - `shadow.culling=reversed` is Iris's SAFE_ZONE. With `voxelDistance` 32, chunks past 32 blocks
   are only voxelized if they cast shadow into view, though the volume reaches 48 blocks at
   `VX_VOL_SIZE 0`.
@@ -348,16 +366,19 @@ unbound clouds) need a second run with an edited option file.
   fragment's own pixel, so it trails the item by one frame of its on-screen motion (about 10
   pixels at 60 fps with view bobbing). Iris exposes no previous-frame hand transform to
   compensate with; the real fix would be a pass that traces the hand from the current frame.
-- A strip of loaded ice at the loaded edge reads lighter than the ice inside it when seen from a
-  steep angle. Unexplained: the ice layers match in coverage, the LOD floor's `y^4` fallback is
-  only a few percent of an under-ice pixel, and neither the cache stand-in nor the loaded-water
-  depth fix moved it. Tests that would separate the candidates: `GI_STRENGTH 0`, a render
-  distance that puts the handoff outside the voxel volume, and shallow against deep water.
+- Ice reads whiter from where the shadow map ends. Inside the map, the water and floor under
+  loaded ice are lit through the ice's coloured shadow; past 11/12 of `min(shadowDistance,
+  far)` they take the fallback, which knows nothing of the ice above, so the water body comes
+  out about a fifth brighter and less blue. That was the lighter strip at the loaded edge. LODs
+  share the fallback and can never receive the coloured shadow, so with the `y^4` ramp the band
+  and the LODs agree and the change sits at the shadow fade, spread over 16 blocks, not at the
+  handoff.
+- Block-light shadows on translucents are block-sized, see "Colored light". The fix would be a
+  per-pixel trace in `gbuffers_water` against the distance field for the few strongest lights
+  of the fragment's workgroup, roughly 50 fetches per light per fragment at `RT_STEPS 50`.
 - Looking up from under water, the surface brightens toward the horizon. This is the pack's own
   shaft weighting (`VdotUM`, about twice from overhead to the horizon) and fresnel, unchanged
   from before the LOD work.
-- Above water, LOD surfaces with sky light below 15 at the handoff get the `y^4` sun fallback and
-  the open-surface cache stand-in where loaded ones get `y^8` and the cache.
 - `WORLD_BLUR 2` focuses on `depthtex1`, so depth of field treats LOD pixels, and loaded ice
   over LOD water, as infinitely far and blurs them more than loaded geometry at that distance.
 - LOD water has no refraction (composite's `DoRefraction` gates on the water material mask,
